@@ -1,0 +1,15 @@
+# 원본 데이터 및 대용량 파일 제외
+*.pdf
+*.xlsx
+*.xls
+~$*
+4주기대학기관평가인증통계/
+
+# 파이썬 관련 임시 파일
+__pycache__/
+*.pyc
+explore.json
+
+# 시스템 파일
+.DS_Store
+Thumbs.db
