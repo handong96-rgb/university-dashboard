@@ -714,10 +714,13 @@ function renderRivalry(sch, cmp) {
 
     const latestYear = getActiveYear();
 
+    const allKpis = appData.filters.indicators.filter(i => /^\[\d+\.\d+\]/.test(i));
+
     // Build Stats A (Target)
-    CORE_9_KPIS.forEach(kpi => {
+    allKpis.forEach(kpi => {
         let vA = appData.records.find(r => r['연도']===latestYear && r['지표명']===kpi && r['학교명']===sch)?.값 || 0;
         
+        // Competitor range for color highlight
         let allCmpVals = cmp.map(cSchool => appData.records.find(r => r['연도']===latestYear && r['지표명']===kpi && r['학교명']===cSchool)?.값 || 0);
         let maxCmp = Math.max(...allCmpVals);
         let minCmp = Math.min(...allCmpVals);
@@ -732,7 +735,7 @@ function renderRivalry(sch, cmp) {
         statsA.innerHTML += `
             <div class="rival-stat ${aWins ? 'win' : ''}">
                 <div class="stat-name">${kpiName}</div>
-                <div><span class="stat-val">${vA.toFixed(1)}</span><span class="stat-unit">${unit}</span></div>
+                <div><span class="stat-val">${vA.toLocaleString(undefined, {minimumFractionDigits:1, maximumFractionDigits:1})}</span><span class="stat-unit">${unit}</span></div>
             </div>`;
     });
 
@@ -750,7 +753,7 @@ function renderRivalry(sch, cmp) {
         let statsB = document.createElement('div');
         statsB.className = "rival-stats";
 
-        CORE_9_KPIS.forEach(kpi => {
+        allKpis.forEach(kpi => {
             let vA = appData.records.find(r => r['연도']===latestYear && r['지표명']===kpi && r['학교명']===sch)?.값 || 0;
             let vB = appData.records.find(r => r['연도']===latestYear && r['지표명']===kpi && r['학교명']===cSchool)?.값 || 0;
 
@@ -764,7 +767,7 @@ function renderRivalry(sch, cmp) {
             statsB.innerHTML += `
                 <div class="rival-stat ${bWins ? 'win' : ''}">
                     <div class="stat-name" style="width: auto;"></div>
-                    <div><span class="stat-val">${vB.toFixed(1)}</span><span class="stat-unit">${unit}</span></div>
+                    <div><span class="stat-val">${vB.toLocaleString(undefined, {minimumFractionDigits:1, maximumFractionDigits:1})}</span><span class="stat-unit">${unit}</span></div>
                 </div>`;
         });
         col.appendChild(statsB);
