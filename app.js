@@ -852,15 +852,24 @@ function renderRadar(sch, cmp) {
         const color = isTarget ? '#1d4ed8' : cmpColors[(sIdx) % cmpColors.length];
         const dirLookup = (k) => (TARGETS[k] || {dir: 1}).dir;
 
-        const data = selectedRadarIndicators.map(k => {
+        const data = [];
+        const rawValues = [];
+
+        selectedRadarIndicators.map(k => {
             const rs = appData.records.filter(r => r['연도'] === latestYear && r['지표명'] === k);
             const p = getPercentile(rs, sName, dirLookup(k));
-            return p.score || 0; 
+            data.push(p.score || 0);
+            
+            // Get raw value and unit
+            const meta = appData.indicator_metadata.find(m => m['지표명'] === k);
+            const unit = meta && meta['단위'] !== 'NaN' ? meta['단위'] : '';
+            rawValues.push({ val: p.value, unit: unit, name: k.replace(/\[\d+\.\d+\]\s*/, '') });
         });
 
         datasets.push({
             label: sName,
             data: data,
+            raw: rawValues, // Store for tooltip
             backgroundColor: isTarget ? 'rgba(29, 78, 216, 0.1)' : 'transparent',
             borderColor: color,
             pointBackgroundColor: color,
@@ -876,7 +885,21 @@ function renderRadar(sch, cmp) {
         data: { labels, datasets },
         options: {
             responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: false } }, // Our manual legend is better
+            plugins: { 
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const dataset = context.dataset;
+                            const index = context.dataIndex;
+                            const rawObj = dataset.raw[index];
+                            const score = context.parsed.r;
+                            const val = rawObj.val ? rawObj.val.toLocaleString() : '0';
+                            return ` ${context.dataset.label}: ${score.toFixed(1)}점 (실제값: ${val}${rawObj.unit})`;
+                        }
+                    }
+                }
+            },
             scales: {
                 r: {
                     min: 0, max: 100, beginAtZero: true,
