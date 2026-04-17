@@ -1,5 +1,6 @@
 let appData = null;
-let charts = {};
+let charts = { massiveTrends: {} };
+Chart.register(ChartDataLabels);
 
 const CORE_9_KPIS = [
     '[1.5] 학생 충원 성과', '[1.5] 졸업생 진로 성과', '[1.3] 교육비 환원율', 
@@ -234,7 +235,6 @@ function renderPerformance(sch, cmp, reg, typ) {
     ['execRadar', 'fin', 'dormReg', 'sizeEnroll', 'research', 'enrollTrend', 'eduTrend'].forEach(key => {
         if(charts[key]) charts[key].destroy();
     });
-    if(!charts.massiveTrends) charts.massiveTrends = {};
     for (let key in charts.massiveTrends) {
         charts.massiveTrends[key].destroy();
     }
@@ -300,17 +300,19 @@ function renderPerformance(sch, cmp, reg, typ) {
         let kpiName = kpi.replace(/^\[\d+\.\d+\]\s*/, '');
         let dirIcon = dir === 1 ? '↑' : '↓';
         let color = stat.score >= 80 ? '#059669' : stat.score >= 60 ? '#1d4ed8' : stat.score >= 40 ? '#d97706' : '#dc2626';
+        const meta = appData.indicator_metadata.find(m => m['지표명'] === kpi);
+        const unit = meta && meta['단위'] !== 'NaN' ? meta['단위'] : '';
 
         rankBars.innerHTML += `
             <div class="rank-row">
               <div class="rank-label" style="width:220px;" title="${kpiName}">${kpiName.substring(0,25)} ${dirIcon}</div>
               <div class="rank-bar-bg" style="position:relative;">
-                <div class="rank-bar-fill" style="width:${stat.score}%; background:${color}; padding-right:8px; display:flex; align-items:center; justify-content:flex-end; color:#fff; font-weight:700; font-size:12px;">
-                  ${stat.score >= 10 ? stat.value.toFixed(1) : ''}
+                <div class="rank-bar-fill" style="width:${stat.score}%; background:${color}; padding-right:8px; display:flex; align-items:center; justify-content:flex-end; color:#fff; font-weight:700; font-size:11px;">
+                  ${stat.score >= 15 ? stat.value.toFixed(1) + unit : ''}
                 </div>
-                ${stat.score < 10 ? `<span style="position:absolute; left:8px; top:0; bottom:0; display:flex; align-items:center; font-size:12px; font-weight:700; color:#333;">${stat.value.toFixed(1)}</span>` : ''}
+                ${stat.score < 15 ? `<span style="position:absolute; left:8px; top:0; bottom:0; display:flex; align-items:center; font-size:11px; font-weight:700; color:#333;">${stat.value.toFixed(1)}${unit}</span>` : ''}
               </div>
-              <div class="rank-val" style="color:${color}; width:80px; text-align:right;">상위 ${stat.topPct.toFixed(1)}%</div>
+              <div class="rank-val" style="color:${color}; width:90px; text-align:right;">상위 ${stat.topPct.toFixed(1)}%</div>
             </div>`;
             
         // Prepare Radar Data
@@ -354,7 +356,14 @@ function renderPerformance(sch, cmp, reg, typ) {
         charts.fin = new Chart(document.getElementById('finChart').getContext('2d'), {
             type: 'bar',
             data: { labels: ['등록금 비율', '기부금 비율', '법인전입금 비율'], datasets },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } } } }
+            options: { 
+                responsive: true, maintainAspectRatio: false, 
+                plugins: { 
+                    legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } },
+                    datalabels: { anchor: 'end', align: 'top', font: { size: 9, weight: 'bold' }, formatter: (v) => v.toFixed(1) + '%' }
+                },
+                scales: { y: { beginAtZero: true, max: 100 } }
+            }
         });
     }
 
@@ -383,7 +392,10 @@ function renderPerformance(sch, cmp, reg, typ) {
             data: { labels: ['수도권 전체', '비수도권 전체', groupLabel, sch], datasets },
             options: { 
                 responsive: true, maintainAspectRatio: false, 
-                plugins: { legend: { display: false } },
+                plugins: { 
+                    legend: { display: false },
+                    datalabels: { anchor: 'end', align: 'top', font: { size: 9, weight: 'bold' }, formatter: (v) => v.toFixed(1) + '%' }
+                },
                 scales: { y: { beginAtZero: true } }
             }
         });
@@ -414,7 +426,10 @@ function renderPerformance(sch, cmp, reg, typ) {
             data: { labels: ['사립 전체', '국공립 전체', groupLabel, sch], datasets },
             options: { 
                 responsive: true, maintainAspectRatio: false, 
-                plugins: { legend: { display: false } },
+                plugins: { 
+                    legend: { display: false },
+                    datalabels: { anchor: 'end', align: 'top', font: { size: 9, weight: 'bold' }, formatter: (v) => v.toFixed(1) }
+                },
                 scales: { y: { beginAtZero: true } }
             }
         });
@@ -470,7 +485,14 @@ function renderPerformance(sch, cmp, reg, typ) {
                     data: { labels: displayYears, datasets: lineDatasets },
                     options: { 
                         responsive: true, maintainAspectRatio: false, 
-                        plugins: { legend: { display: false } },
+                        plugins: { 
+                            legend: { display: false },
+                            datalabels: {
+                                display: (context) => context.datasetIndex === 0, // Only for Target
+                                align: 'top', anchor: 'end', font: { size: 9, weight: 'bold' },
+                                formatter: (v) => v !== null ? v.toLocaleString() : ''
+                            }
+                        },
                         scales: { x: { ticks: { font: { size: 10 } } }, y: { beginAtZero: false, ticks: { font: { size: 10 } } } }
                     }
                 });
@@ -509,7 +531,13 @@ function renderPerformance(sch, cmp, reg, typ) {
         charts.research = new Chart(document.getElementById('researchChart').getContext('2d'), {
             type: 'bar',
             data: { labels: ['논문 성과', '외부 연구비'], datasets },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'bottom' } } }
+            options: { 
+                responsive: true, maintainAspectRatio: false, 
+                plugins: { 
+                    legend: { display: true, position: 'bottom' },
+                    datalabels: { anchor: 'end', align: 'top', font: { size: 9, weight: 'bold' }, formatter: (v) => v.toLocaleString() }
+                } 
+            }
         });
     }
 }
@@ -556,7 +584,14 @@ function renderBenchmarking(sch, cmp, ind) {
         options: {
             indexAxis: 'y', // horizontal bar
             responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: false } }
+            plugins: { 
+                legend: { display: false },
+                datalabels: {
+                    anchor: 'end', align: 'right', font: { size: 10, weight: 'bold' },
+                    formatter: (v) => v.toLocaleString()
+                }
+            },
+            scales: { x: { beginAtZero: true, ticks: { display: false }, grid: { display: false } } }
         }
     });
 }
