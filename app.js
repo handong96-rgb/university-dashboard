@@ -190,7 +190,8 @@ function updateDashboard() {
     if(activePageId === 'page-performance') renderPerformance(sch, cmp, reg, typ);
     if(activePageId === 'page-benchmarking') { 
         renderBenchmarking(sch, cmp, ind); 
-        updateRadarFiltersUI(sch, cmp); // Handle radar checkboxes
+        updateRadarIndicatorFiltersUI(); // New: Indicator axes
+        updateRadarSchoolLegendUI(sch, cmp); // New: School colors
         renderRadar(sch, cmp); 
     }
     if(activePageId === 'page-scatter') renderScatter(sch, cmp, reg, typ);
@@ -772,39 +773,61 @@ function renderRivalry(sch, cmp) {
 }
 
 // 7. Radar function (Benchmarking Page)
-let radarVisibility = {}; // Global state to track radar checkbox status
+let selectedRadarIndicators = [
+    '[1.3] 교육비 환원율', 
+    '[1.5] 학생 충원 성과', 
+    '[1.5] 졸업생 진로 성과', 
+    '[3.1] 전임교원 및 겸임교원 확보율', 
+    '[4.1] 장학금 비율'
+];
 
-function updateRadarFiltersUI(sch, cmp) {
-    const container = document.getElementById('radar-legend-filters');
-    if (!container) return;
+function updateRadarIndicatorFiltersUI() {
+    const container = document.getElementById('radar-indicator-filters');
+    if (!container || container.children.length > 0) return; // Only populate once
 
-    const currentSchools = [sch, ...cmp].filter(s => s !== 'all');
+    const allIndicators = appData.filters.indicators.filter(i => /^\[\d+\.\d+\]/.test(i));
     
-    // Clear removed schools from visibility map, add new ones default true
-    const newVisibility = {};
-    currentSchools.forEach(s => {
-        newVisibility[s] = (radarVisibility[s] !== undefined) ? radarVisibility[s] : true;
-    });
-    radarVisibility = newVisibility;
-
-    container.innerHTML = '';
-    currentSchools.forEach((s, idx) => {
-        const span = document.createElement('label');
-        span.style.cssText = 'display:flex; align-items:center; gap:4px; cursor:pointer; padding:2px 6px; border-radius:4px; background:#fff; border:1px solid #e5e7eb;';
+    allIndicators.forEach(ind => {
+        const label = document.createElement('label');
+        label.style.cssText = 'display:flex; align-items:center; gap:4px; cursor:pointer; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;';
+        const kpiName = ind.replace(/\[\d+\.\d+\]\s*/, '');
         
-        const color = (s === sch) ? '#1d4ed8' : cmpColors[(idx - 1) % cmpColors.length];
-        
-        span.innerHTML = `
-            <input type="checkbox" ${radarVisibility[s] ? 'checked' : ''} data-school="${s}">
-            <span style="color:${color}; font-weight:600;">${s}</span>
+        label.innerHTML = `
+            <input type="checkbox" ${selectedRadarIndicators.includes(ind) ? 'checked' : ''} value="${ind}">
+            <span title="${ind}">${kpiName}</span>
         `;
         
-        span.querySelector('input').addEventListener('change', (e) => {
-            radarVisibility[s] = e.target.checked;
-            renderRadar(sch, cmp); // Re-render radar only
+        label.querySelector('input').addEventListener('change', (e) => {
+            if (e.target.checked) {
+                if (!selectedRadarIndicators.includes(ind)) selectedRadarIndicators.push(ind);
+            } else {
+                selectedRadarIndicators = selectedRadarIndicators.filter(x => x !== ind);
+            }
+            // Trigger redraw - we don't call updateDashboard to avoid full page refresh
+            const sch = document.getElementById('school-select').value;
+            const cmp = Array.from(document.getElementById('compare-select').selectedOptions).map(o => o.value);
+            renderRadar(sch, cmp);
         });
-        
-        container.appendChild(span);
+        container.appendChild(label);
+    });
+}
+
+function updateRadarSchoolLegendUI(sch, cmp) {
+    const container = document.getElementById('radar-school-legend');
+    if (!container) return;
+
+    const allSchools = [sch, ...cmp].filter(s => s !== 'all');
+    container.innerHTML = '';
+
+    allSchools.forEach((sName, sIdx) => {
+        const color = (sName === sch) ? '#1d4ed8' : cmpColors[(sIdx - 1) % cmpColors.length];
+        const item = document.createElement('div');
+        item.style.cssText = 'display:flex; align-items:center; gap:5px; font-size:11px; font-weight:600; padding:2px 8px; border-radius:4px; background:#fff; border:1px solid #eee;';
+        item.innerHTML = `
+            <div style="width:8px; height:8px; border-radius:50%; background:${color}"></div>
+            <span>${sName}</span>
+        `;
+        container.appendChild(item);
     });
 }
 
@@ -813,44 +836,38 @@ function renderRadar(sch, cmp) {
     if(!ctx) return;
     if(charts.radar) charts.radar.destroy();
 
-    const radarKpis = [
-        '[1.3] 교육비 환원율', 
-        '[1.5] 학생 충원 성과', 
-        '[1.5] 졸업생 진로 성과', 
-        '[3.1] 전임교원 및 겸임교원 확보율', 
-        '[4.1] 장학금 비율'
-    ];
     const latestYear = getActiveYear();
-    const labels = radarKpis.map(k => k.replace(/\[\d+\.\d+\]\s*/, ''));
-    
-    const datasets = [];
 
-    // All participating schools (Target + Compare)
+    if (selectedRadarIndicators.length < 3) {
+        // Radar needs at least 3 points to look decent
+        return; 
+    }
+
+    const labels = selectedRadarIndicators.map(k => k.replace(/\[\d+\.\d+\]\s*/, ''));
+    const datasets = [];
     const allSchools = [sch, ...cmp].filter(s => s !== 'all');
 
     allSchools.forEach((sName, sIdx) => {
-        // Only include if visible in our toggle map
-        if (!radarVisibility[sName]) return;
-
         const isTarget = (sName === sch);
-        const color = isTarget ? '#1d4ed8' : cmpColors[(sIdx - 1) % cmpColors.length];
+        const color = isTarget ? '#1d4ed8' : cmpColors[(sIdx) % cmpColors.length];
         const dirLookup = (k) => (TARGETS[k] || {dir: 1}).dir;
 
-        const data = radarKpis.map(k => {
+        const data = selectedRadarIndicators.map(k => {
             const rs = appData.records.filter(r => r['연도'] === latestYear && r['지표명'] === k);
             const p = getPercentile(rs, sName, dirLookup(k));
-            return p.score || 0; // Use Score (0-100) instead of raw value
+            return p.score || 0; 
         });
 
         datasets.push({
             label: sName,
             data: data,
-            backgroundColor: isTarget ? 'rgba(29, 78, 216, 0.15)' : 'transparent',
+            backgroundColor: isTarget ? 'rgba(29, 78, 216, 0.1)' : 'transparent',
             borderColor: color,
             pointBackgroundColor: color,
-            borderWidth: isTarget ? 3 : 2,
-            borderDash: isTarget ? [] : [4, 4],
-            fill: isTarget
+            borderWidth: isTarget ? 3 : 1.5,
+            borderDash: isTarget ? [] : [3, 2],
+            fill: isTarget,
+            tension: 0.2
         });
     });
 
@@ -859,18 +876,14 @@ function renderRadar(sch, cmp) {
         data: { labels, datasets },
         options: {
             responsive: true, maintainAspectRatio: false,
-            plugins: { 
-                legend: { display: false } // We have our own manual legend/filters
-            },
+            plugins: { legend: { display: false } }, // Our manual legend is better
             scales: {
                 r: {
-                    min: 0,
-                    max: 100,
-                    beginAtZero: true,
-                    ticks: { stepSize: 20, display: true, font: { size: 10 } },
-                    grid: { color: '#e5e7eb' },
-                    angleLines: { color: '#e5e7eb' },
-                    pointLabels: { font: { size: 11, weight: '600' } }
+                    min: 0, max: 100, beginAtZero: true,
+                    ticks: { stepSize: 25, display: true, font: { size: 9 }, backdropColor: 'transparent' },
+                    grid: { color: '#f3f4f6' },
+                    angleLines: { color: '#f3f4f6' },
+                    pointLabels: { font: { size: 10, weight: '700' }, color: '#374151' }
                 }
             }
         }
