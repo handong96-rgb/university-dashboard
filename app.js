@@ -124,10 +124,17 @@ function setupFilters() {
         e.preventDefault();
         const option = e.target;
         if (option.tagName === 'OPTION') {
-            const oldValue = option.selected;
-            option.selected = !oldValue;
+            option.selected = !option.selected;
             
-            // Trigger change event manually since we prevented default
+            // Visual Feedback: Add checkmarks
+            if (option.selected) {
+                if (!option.innerText.startsWith('✓ ')) {
+                    option.innerText = '✓ ' + option.innerText;
+                }
+            } else {
+                option.innerText = option.innerText.replace('✓ ', '');
+            }
+            
             const event = new Event('change', { bubbles: true });
             cmpSel.dispatchEvent(event);
             updateDashboard();

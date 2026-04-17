@@ -479,3 +479,16 @@ body {
     color: var(--text-muted);
     margin-left: 0.2rem;
 }
+
+/* Compare Select Highlighting */
+#compare-select option {
+    padding: 6px 10px;
+    border-bottom: 1px solid #f3f4f6;
+    transition: background 0.2s;
+}
+
+#compare-select option:checked {
+    background-color: #dbeafe !important;
+    color: #1d4ed8 !important;
+    font-weight: 700;
+}
