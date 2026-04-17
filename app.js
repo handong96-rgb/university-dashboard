@@ -38,7 +38,18 @@ window.addEventListener('DOMContentLoaded', async () => {
     try {
         const res = await fetch('dashboard_data.json');
         appData = await res.json();
+        appData.schoolMetadataMap = {}; // High-performance lookup
         
+        // Global Indicator Filtering & Map building
+        appData.filters.indicators = appData.filters.indicators.filter(i => !i.includes('연구성과 기준값 대비 실적'));
+        appData.records = appData.records.filter(r => !r['지표명'].includes('연구성과 기준값 대비 실적'));
+        
+        appData.records.forEach(r => {
+            if (!appData.schoolMetadataMap[r['학교명']]) {
+                appData.schoolMetadataMap[r['학교명']] = { reg: r['지역'], typ: r['설립구분'] };
+            }
+        });
+
         Chart.defaults.color = '#6b7280';
         Chart.defaults.borderColor = 'rgba(0,0,0,0.06)';
         
@@ -50,6 +61,20 @@ window.addEventListener('DOMContentLoaded', async () => {
         document.querySelector('.powerbi-wrapper').innerHTML = `<h1 style="padding:2rem;">Data Load Failed!</h1><pre style="padding:2rem;color:red;white-space:pre-wrap;">${e.stack || e}</pre>`;
     }
 });
+
+function formatKpiValue(val, indName) {
+    if (val == null || isNaN(val)) return '-';
+    let dec = 2; // Default
+    const meta = appData.indicator_metadata.find(m => m['지표명'] === indName);
+    const formatType = meta ? meta['평가표기'] : '2자리';
+    
+    if (formatType === '정수') dec = 0;
+    else if (formatType === '1자리') dec = 1;
+    else if (formatType === '2자리') dec = 2;
+    else if (formatType === '3자리') dec = 3;
+    
+    return Number(val).toLocaleString(undefined, { minimumFractionDigits: dec, maximumFractionDigits: dec });
+}
 
 function setupNavigation() {
     const navItems = document.querySelectorAll('.nav-item');
@@ -118,30 +143,119 @@ function setupFilters() {
     }
     if(appData.filters.indicators.includes('[4.1] 장학금 비율')) scxSel.value = '[4.1] 장학금 비율';
 
-    [yearSel, schSel, cmpSel, indSel, scxSel, scySel, regSel, typSel].forEach(el => el.addEventListener('change', updateDashboard));
+    // Initial filtering
+    updateSchoolListsByFilter('all', 'all');
 
-    // Improved Multi-select behavior: Toggle on click without Ctrl
+    // Consolidated filter event handling
+    [yearSel, schSel, cmpSel, indSel, scxSel, scySel, regSel, typSel].forEach(el => {
+        el.addEventListener('change', (e) => {
+            const rVal = document.getElementById('region-select').value;
+            const tVal = document.getElementById('type-select').value;
+            
+            if (e.target.id === 'region-select' || e.target.id === 'type-select') {
+                updateSchoolListsByFilter(rVal, tVal);
+            }
+            updateDashboard();
+        });
+    });
+
+    const rivalryCompareSelect = document.getElementById('rivalry-compare-select');
+    if(rivalryCompareSelect) {
+        rivalryCompareSelect.addEventListener('change', () => {
+            const sch = schSel.value;
+            renderRivalry(sch, []);
+        });
+    }
+
     cmpSel.addEventListener('mousedown', function(e) {
         e.preventDefault();
         const option = e.target;
         if (option.tagName === 'OPTION') {
             option.selected = !option.selected;
-            
-            // Visual Feedback: Add checkmarks
             if (option.selected) {
-                if (!option.innerText.startsWith('✓ ')) {
-                    option.innerText = '✓ ' + option.innerText;
-                }
+                if (!option.innerText.startsWith('✓ ')) option.innerText = '✓ ' + option.innerText;
             } else {
                 option.innerText = option.innerText.replace('✓ ', '');
             }
-            
             const event = new Event('change', { bubbles: true });
             cmpSel.dispatchEvent(event);
             updateDashboard();
         }
     });
+
+    const clearCompareBtn = document.getElementById('clear-compare');
+    if (clearCompareBtn) {
+        clearCompareBtn.addEventListener('click', () => {
+            const options = cmpSel.querySelectorAll('option');
+            options.forEach(o => {
+                o.selected = false;
+                o.innerText = o.innerText.replace('✓ ', '');
+            });
+            const event = new Event('change', { bubbles: true });
+            cmpSel.dispatchEvent(event);
+            updateDashboard();
+        });
+    }
 }
+
+function updateSchoolListsByFilter(reg, typ) {
+    const schSel = document.getElementById('school-select');
+    const cmpSel = document.getElementById('compare-select');
+    const rivalrySch1 = document.getElementById('rivalry-school-1');
+
+    if (!schSel || !cmpSel) return;
+
+    // Save current selections
+    const currentSch = schSel.value;
+    const currentCmps = Array.from(cmpSel.selectedOptions).map(o => o.value);
+
+    // Filter schools using high-performance cached map
+    const filteredSchools = appData.filters.schools.filter(name => {
+        const meta = appData.schoolMetadataMap[name];
+        if (!meta) return true; 
+        const regMatch = (reg === 'all' || meta.reg === reg);
+        const typMatch = (typ === 'all' || meta.typ === typ);
+        return regMatch && typMatch;
+    });
+
+    // Efficiently update Target School
+    const frag1 = document.createDocumentFragment();
+    const optAll = document.createElement('option');
+    optAll.value = 'all'; optAll.innerText = '전체 대학 (평균)';
+    frag1.appendChild(optAll);
+
+    filteredSchools.forEach(s => {
+        const o = document.createElement('option'); o.value = s; o.innerText = s; frag1.appendChild(o);
+    });
+    schSel.innerHTML = '';
+    schSel.appendChild(frag1);
+    
+    if (filteredSchools.includes(currentSch)) schSel.value = currentSch;
+    else schSel.value = 'all';
+
+    // Efficiently update Compare School
+    const frag2 = document.createDocumentFragment();
+    filteredSchools.forEach(s => {
+        const o = document.createElement('option'); o.value = s; o.innerText = s; frag2.appendChild(o);
+    });
+    cmpSel.innerHTML = '';
+    cmpSel.appendChild(frag2);
+    
+    currentCmps.forEach(v => {
+        const opt = cmpSel.querySelector(`option[value="${v}"]`);
+        if (opt) opt.selected = true;
+    });
+
+    // Page 6 Rivalry dropdown
+    if (rivalrySch1) {
+        rivalrySch1.innerHTML = '<option value="all">대학 선택</option>';
+        filteredSchools.forEach(s => {
+            const o = document.createElement('option'); o.value = s; o.innerText = s; rivalrySch1.appendChild(o);
+        });
+    }
+}
+
+
 
 function getAvgValue(rs) {
     if(!rs || !rs.length) return null;
@@ -151,22 +265,39 @@ function getAvgValue(rs) {
     return sum / valid.length;
 }
 
-function getPercentile(rs, school, dir) {
+function getPercentile(rs, school, dir, kpiName, year) {
     if(!school || school === 'all') return { value: null, topPct: 50, score: 50 };
-    const r = rs.find(x => x['학교명'] === school);
+    
+    // Safety check for metadata extraction
+    let kpi = kpiName;
+    let yr = year;
+    if ((!kpi || !yr) && rs && rs.length > 0) {
+        kpi = rs[0]['지표명'];
+        yr = rs[0]['연도'];
+    }
+    
+    if (!kpi || !yr) return { value: null, topPct: 50, score: 50 };
+
+    // Find the target school globally to prevent empty spaces when filter excludes it
+    const r = appData.records.find(x => x['지표명'] === kpi && x['연도'] === yr && x['학교명'] === school);
     if(!r || r['값'] == null) return { value: null, topPct: 50, score: 50 };
     
-    let valid = rs.filter(x => x['값'] != null).map(x => x['값']);
-    if(valid.length === 0) return { value: r['값'], topPct: 50, score: 50 };
+    const schoolValue = r['값'];
+    
+    let valid = (rs || []).filter(x => x['값'] != null).map(x => x['값']);
+    // Include school value if it's not present because of filters
+    if (!valid.includes(schoolValue)) {
+        valid.push(schoolValue);
+    }
     
     valid.sort((a,b) => b - a); // desc
     if(dir === -1) valid.sort((a,b) => a - b); // asc if lower is better
 
-    let rank = valid.indexOf(r['값']) + 1;
+    let rank = valid.indexOf(schoolValue) + 1;
     let rankPct = (rank / valid.length) * 100;
     
     return {
-        value: r['값'],
+        value: schoolValue,
         topPct: rankPct,
         score: Math.max(0, 100 - rankPct) // bar width (100 is best)
     };
@@ -187,6 +318,12 @@ function updateDashboard() {
     const typ = document.getElementById('type-select').value;
 
     document.querySelectorAll('.dynamic-indicator-name').forEach(el => el.innerText = ind);
+    
+    // Update selection count
+    const countEl = document.getElementById('compare-count');
+    if (countEl) {
+        countEl.innerText = `${cmp.length}개 선택`;
+    }
 
     if(activePageId === 'page-performance') renderPerformance(sch, cmp, reg, typ);
     if(activePageId === 'page-benchmarking') { 
@@ -259,30 +396,31 @@ function renderPerformance(sch, cmp, reg, typ) {
     const kpiContainer = document.getElementById('kpi-container');
     kpiContainer.innerHTML = '';
     
-    CORE_8_KPIS.forEach(kpi => {
-        const { group, target } = getLocalFilteredRs(kpi);
-        const dir = (TARGETS[kpi] || {dir: 1}).dir;
-        
-        // Percentile is calculated against the FULL dataset (not just the filtered group) for absolute ranking
-        const allYearRecs = appData.records.filter(r => r['연도'] === latestYear && r['지표명'] === kpi);
-        const stat = getPercentile(allYearRecs, sch, dir);
-        
-        const groupAvg = getAvgValue(group);
-        let badgeClass = stat.topPct <= 10 ? 'badge-green' : stat.topPct <= 30 ? 'badge-blue' : stat.topPct <= 60 ? 'badge-amber' : 'badge-red';
-        let cardClass = stat.topPct <= 10 ? 'good' : stat.topPct <= 30 ? '' : stat.topPct <= 60 ? 'warn' : 'poor';
-        let kpiName = kpi.replace(/^\[\d+\.\d+\]\s*/, '');
-        let valStr = (target && target['값'] != null) ? target['값'].toFixed(1) : '-';
+    try {
+        CORE_8_KPIS.forEach(kpi => {
+            const { group, target } = getLocalFilteredRs(kpi);
+            const dir = (TARGETS[kpi] || {dir: 1}).dir;
+            
+            // Percentile is calculated against the locally filtered dataset reflecting active Region and Type
+            const stat = getPercentile(group, sch, dir, kpi, latestYear);
+            
+            const groupAvg = getAvgValue(group);
+            let badgeClass = stat.topPct <= 10 ? 'badge-green' : stat.topPct <= 30 ? 'badge-blue' : stat.topPct <= 60 ? 'badge-amber' : 'badge-red';
+            let cardClass = stat.topPct <= 10 ? 'good' : stat.topPct <= 30 ? 'mid' : stat.topPct <= 60 ? 'warn' : 'poor';
+            let kpiName = kpi.replace(/^\[\d+\.\d+\]\s*/, '');
+            let valStr = (target && target['값'] != null) ? formatKpiValue(target['값'], kpi) : '-';
 
-        kpiContainer.innerHTML += `
-            <div class="kpi-card ${cardClass}">
-                <div class="kpi-label" title="${kpiName}">${kpiName}</div>
-                <div class="kpi-value">${valStr}</div>
-                <div class="kpi-meta">
-                    <span class="badge ${badgeClass}">전국 상위 ${stat.topPct.toFixed(1)}%</span>
-                    <span class="kpi-nat">${groupLabel} ${groupAvg ? groupAvg.toFixed(1) : '-'}</span>
-                </div>
-            </div>`;
-    });
+            kpiContainer.innerHTML += `
+                <div class="kpi-card ${cardClass}">
+                    <div class="kpi-label" title="${kpiName}">${kpiName}</div>
+                    <div class="kpi-value">${valStr}</div>
+                    <div class="kpi-meta">
+                        <span class="badge ${badgeClass}">${groupLabel.replace(' 평균', '')} 상위 ${stat.topPct.toFixed(1)}%</span>
+                        <span class="kpi-nat">${groupLabel} ${groupAvg ? groupAvg.toFixed(1) : '-'}</span>
+                    </div>
+                </div>`;
+        });
+    } catch (e) { console.error("KPI Cards Loop Error:", e); }
 
     // 1-2. Rank Bars (All 22 Indicators)
     const rankBars = document.getElementById('rankBars');
@@ -291,39 +429,41 @@ function renderPerformance(sch, cmp, reg, typ) {
     
     let radarLabels = [], radarSchData = [], radarCmpDatasets = cmp.map(c => ({ label: c, data: [], borderColor: '', borderDash: [4,2], fill: false }));
 
-    allIndicators.forEach((kpi, idx) => {
-        const dir = (TARGETS[kpi] || {dir: 1}).dir;
-        const allYearRecs = appData.records.filter(r => r['연도'] === latestYear && r['지표명'] === kpi);
-        const stat = getPercentile(allYearRecs, sch, dir);
-        if(stat.value === null) return;
+    try {
+        allIndicators.forEach((kpi, idx) => {
+            const dir = (TARGETS[kpi] || {dir: 1}).dir;
+            const { group } = getFilteredRs(kpi, latestYear, sch, cmp, reg, typ);
+            const stat = getPercentile(group, sch, dir, kpi, latestYear);
+            if(stat.value === null) return;
 
-        let kpiName = kpi.replace(/^\[\d+\.\d+\]\s*/, '');
-        let dirIcon = dir === 1 ? '↑' : '↓';
-        let color = stat.score >= 80 ? '#059669' : stat.score >= 60 ? '#1d4ed8' : stat.score >= 40 ? '#d97706' : '#dc2626';
-        const meta = appData.indicator_metadata.find(m => m['지표명'] === kpi);
-        const unit = meta && meta['단위'] !== 'NaN' ? meta['단위'] : '';
+            let kpiName = kpi.replace(/^\[\d+\.\d+\]\s*/, '');
+            let dirIcon = dir === 1 ? '↑' : '↓';
+            let color = stat.score >= 80 ? '#059669' : stat.score >= 60 ? '#1d4ed8' : stat.score >= 40 ? '#d97706' : '#dc2626';
+            const meta = appData.indicator_metadata.find(m => m['지표명'] === kpi);
+            const unit = meta && meta['단위'] !== 'NaN' ? meta['단위'] : '';
 
-        rankBars.innerHTML += `
-            <div class="rank-row">
-              <div class="rank-label" style="width:220px;" title="${kpiName}">${kpiName.substring(0,25)} ${dirIcon}</div>
-              <div class="rank-bar-bg" style="position:relative;">
-                <div class="rank-bar-fill" style="width:${stat.score}%; background:${color}; padding-right:8px; display:flex; align-items:center; justify-content:flex-end; color:#fff; font-weight:700; font-size:11px;">
-                  ${stat.score >= 15 ? stat.value.toFixed(1) + unit : ''}
-                </div>
-                ${stat.score < 15 ? `<span style="position:absolute; left:8px; top:0; bottom:0; display:flex; align-items:center; font-size:11px; font-weight:700; color:#333;">${stat.value.toFixed(1)}${unit}</span>` : ''}
-              </div>
-              <div class="rank-val" style="color:${color}; width:90px; text-align:right;">상위 ${stat.topPct.toFixed(1)}%</div>
-            </div>`;
-            
-        // Prepare Radar Data
-        radarLabels.push(kpiName.substring(0, 8));
-        radarSchData.push(stat.score);
-        cmp.forEach((cName, cIdx) => {
-            const cStat = getPercentile(allYearRecs, cName, dir);
-            radarCmpDatasets[cIdx].data.push(cStat.value !== null ? cStat.score : 0);
-            radarCmpDatasets[cIdx].borderColor = cmpColors[cIdx % cmpColors.length];
+            rankBars.innerHTML += `
+                <div class="rank-row">
+                  <div class="rank-label" style="width:220px;" title="${kpiName}">${kpiName.substring(0,25)} ${dirIcon}</div>
+                  <div class="rank-bar-bg" style="position:relative;">
+                    <div class="rank-bar-fill" style="width:${stat.score}%; background:${color}; padding-right:8px; display:flex; align-items:center; justify-content:flex-end; color:#fff; font-weight:700; font-size:11px;">
+                      ${stat.score >= 15 ? formatKpiValue(stat.value, kpi) + unit : ''}
+                    </div>
+                    ${stat.score < 15 ? `<span style="position:absolute; left:8px; top:0; bottom:0; display:flex; align-items:center; font-size:11px; font-weight:700; color:#333;">${formatKpiValue(stat.value, kpi)}${unit}</span>` : ''}
+                  </div>
+                  <div class="rank-val" style="color:${color}; width:120px; text-align:right;">${groupLabel.replace(' 평균', '')} 상위 ${stat.topPct.toFixed(1)}%</div>
+                </div>`;
+                
+            // Prepare Radar Data - Use Full Name as requested
+            radarLabels.push(kpiName);
+            radarSchData.push(stat.score);
+            cmp.forEach((cName, cIdx) => {
+                const cStat = getPercentile(group, cName, dir, kpi, latestYear);
+                radarCmpDatasets[cIdx].data.push(cStat.value !== null ? cStat.score : 0);
+                radarCmpDatasets[cIdx].borderColor = cmpColors[cIdx % cmpColors.length];
+            });
         });
-    });
+    } catch (e) { console.error("Rank Bars Loop Error:", e); }
 
     if(document.getElementById('execRadarChart')) {
         charts.execRadar = new Chart(document.getElementById('execRadarChart').getContext('2d'), {
@@ -338,105 +478,160 @@ function renderPerformance(sch, cmp, reg, typ) {
             },
             options: { 
                 responsive: true, maintainAspectRatio: false, 
+                layout: { padding: 10 },
                 plugins: { 
                     legend: { display: true, position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } },
                     datalabels: { display: false }
                 }, 
-                scales: { r: { min: 0, max: 100, ticks: { display: false }, pointLabels: { font: { size: 10, weight: '600' } } } } 
+                scales: { 
+                    r: { 
+                        min: 0, max: 100, 
+                        ticks: { display: false }, 
+                        grid: { color: 'rgba(0,0,0,0.15)' },
+                        angleLines: { color: 'rgba(0,0,0,0.15)' },
+                        pointLabels: { 
+                            font: { size: 9, weight: '600' },
+                            padding: 10,
+                            callback: function(label) {
+                                if (label.length > 10) {
+                                    // Smart wrap: split into 2-3 lines
+                                    const lines = [];
+                                    for (let i = 0; i < label.length; i += 10) {
+                                        lines.push(label.substring(i, i + 10));
+                                    }
+                                    return lines;
+                                }
+                                return label;
+                            }
+                        } 
+                    } 
+                } 
             }
         });
     }
 
     // 1-3. Financial Structure (With Comparison)
-    const finKpis = [getInd('등록금 비율'), getInd('기부금 비율'), getInd('법인전입금')].filter(Boolean);
-    if(document.getElementById('finChart')) {
-        const datasets = [{ label: sch, data: finKpis.map(k => getPercentile(appData.records.filter(r=>r['연도']===latestYear&&r['지표명']===k), sch, (TARGETS[k]||{dir:1}).dir).value), backgroundColor: '#1d4ed8' }];
-        cmp.forEach((cName, cIdx) => {
-            datasets.push({ label: cName, data: finKpis.map(k => getPercentile(appData.records.filter(r=>r['연도']===latestYear&&r['지표명']===k), cName, (TARGETS[k]||{dir:1}).dir).value), backgroundColor: cmpColors[cIdx % cmpColors.length] });
-        });
-        datasets.push({ label: groupLabel, data: finKpis.map(k => getAvgValue(getLocalFilteredRs(k).group)), backgroundColor: '#9ca3af' });
+    try {
+        const finKpis = [getInd('등록금 비율'), getInd('기부금 비율'), getInd('법인전입금')].filter(Boolean);
+        if(document.getElementById('finChart') && finKpis.length > 0) {
+            const datasets = [];
+            // Target
+            datasets.push({ 
+                label: sch, 
+                data: finKpis.map(k => {
+                    const val = getPercentile(getLocalFilteredRs(k).group, sch, (TARGETS[k]||{dir:1}).dir, k, latestYear).value;
+                    return (val != null && !isNaN(val)) ? val : 0;
+                }), 
+                backgroundColor: '#1d4ed8' 
+            });
 
-        charts.fin = new Chart(document.getElementById('finChart').getContext('2d'), {
-            type: 'bar',
-            data: { labels: ['등록금 비율', '기부금 비율', '법인전입금 비율'], datasets },
-            options: { 
-                responsive: true, maintainAspectRatio: false, 
-                plugins: { 
-                    legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } },
-                    datalabels: { anchor: 'end', align: 'top', font: { size: 9, weight: 'bold' }, formatter: (v) => v.toFixed(1) + '%' }
-                },
-                scales: { y: { beginAtZero: true, max: 100 } }
-            }
-        });
-    }
+            // Comps
+            cmp.forEach((cName, cIdx) => {
+                datasets.push({ 
+                    label: cName, 
+                    data: finKpis.map(k => {
+                        const val = getPercentile(getLocalFilteredRs(k).group, cName, (TARGETS[k]||{dir:1}).dir, k, latestYear).value;
+                        return (val != null && !isNaN(val)) ? val : 0;
+                    }), 
+                    backgroundColor: cmpColors[cIdx % cmpColors.length] 
+                });
+            });
+
+            datasets.push({ 
+                label: groupLabel, 
+                data: finKpis.map(k => {
+                    const val = getAvgValue(getLocalFilteredRs(k).group);
+                    return (val != null && !isNaN(val)) ? val : 0;
+                }), 
+                backgroundColor: '#9ca3af' 
+            });
+
+            charts.fin = new Chart(document.getElementById('finChart').getContext('2d'), {
+                type: 'bar',
+                data: { labels: ['등록금 비율', '기부금 비율', '법인전입금 비율'], datasets },
+                options: { 
+                    responsive: true, maintainAspectRatio: false, 
+                    plugins: { 
+                        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } },
+                        datalabels: { anchor: 'end', align: 'top', font: { size: 9, weight: 'bold' }, formatter: (v) => v !== null ? v.toFixed(1) + '%' : '-' }
+                    },
+                    scales: { y: { beginAtZero: true, max: 100 } }
+                }
+            });
+        }
+    } catch (e) { console.error("finChart Error:", e); }
 
     // 1-3-A. Dormitory by Region (Comparative)
-    const dormKpi = getInd('기숙사 수용률 I');
-    if (document.getElementById('dormRegChart') && dormKpi) {
-        const { group, target } = getLocalFilteredRs(dormKpi);
-        const sudokwon = ['서울', '경기', '인천'];
-        
-        const sudokwonRecs = appData.records.filter(r => r['연도']===latestYear && r['지표명']===dormKpi && sudokwon.includes(r['지역']));
-        const nonSudokwonRecs = appData.records.filter(r => r['연도']===latestYear && r['지표명']===dormKpi && !sudokwon.includes(r['지역']));
+    try {
+        const dormKpi = getInd('기숙사 수용률 I');
+        if (document.getElementById('dormRegChart') && dormKpi) {
+            const { group, target } = getLocalFilteredRs(dormKpi);
+            const sudokwon = ['서울', '경기', '인천'];
+            
+            const sudokwonRecs = appData.records.filter(r => r['연도']===latestYear && r['지표명']===dormKpi && sudokwon.includes(r['지역']));
+            const nonSudokwonRecs = appData.records.filter(r => r['연도']===latestYear && r['지표명']===dormKpi && !sudokwon.includes(r['지역']));
 
-        const datasets = [{
-            label: '기숙사 수용률 (%)',
-            data: [
-                getAvgValue(sudokwonRecs),
-                getAvgValue(nonSudokwonRecs),
-                getAvgValue(group),
-                target ? target['값'] || 0 : 0
-            ],
-            backgroundColor: ['#94a3b8', '#cbd5e1', 'rgba(29,78,216,0.2)', '#1d4ed8'],
-            borderRadius: 6
-        }];
-        charts.dormReg = new Chart(document.getElementById('dormRegChart').getContext('2d'), {
-            type: 'bar',
-            data: { labels: ['수도권 전체', '비수도권 전체', groupLabel, sch], datasets },
-            options: { 
-                responsive: true, maintainAspectRatio: false, 
-                plugins: { 
-                    legend: { display: false },
-                    datalabels: { anchor: 'end', align: 'top', font: { size: 9, weight: 'bold' }, formatter: (v) => v.toFixed(1) + '%' }
-                },
-                scales: { y: { beginAtZero: true } }
-            }
-        });
-    }
+            const datasets = [{
+                label: '기숙사 수용률 (%)',
+                data: [
+                    getAvgValue(sudokwonRecs),
+                    getAvgValue(nonSudokwonRecs),
+                    getAvgValue(group),
+                    (target && target['값'] != null) ? target['값'] : 0
+                ].map(v => (v != null && !isNaN(v)) ? v : 0),
+                backgroundColor: ['#94a3b8', '#cbd5e1', 'rgba(29,78,216,0.2)', '#1d4ed8'],
+                borderRadius: 6
+            }];
+            charts.dormReg = new Chart(document.getElementById('dormRegChart').getContext('2d'), {
+                type: 'bar',
+                data: { labels: ['수도권 전체', '비수도권 전체', groupLabel, sch], datasets },
+                options: { 
+                    responsive: true, maintainAspectRatio: false, 
+                    plugins: { 
+                        legend: { display: false },
+                        datalabels: { anchor: 'end', align: 'top', font: { size: 9, weight: 'bold' }, formatter: (v) => v !== null ? v.toFixed(1) + '%' : '-' }
+                    },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+        }
+    } catch (e) { console.error("dormRegChart Error:", e); }
 
     // 1-3-B. Size by Enrollment (Comparative)
-    const enrollKpi = getInd('학생 충원 성과');
-    if (document.getElementById('sizeEnrollChart') && enrollKpi) {
-        const { group, target } = getLocalFilteredRs(enrollKpi);
-        const publicTypes = ['국립', '국립대법인', '공립'];
-        
-        const privateRecs = appData.records.filter(r => r['연도']===latestYear && r['지표명']===enrollKpi && r['설립구분'] === '사립');
-        const publicRecs = appData.records.filter(r => r['연도']===latestYear && r['지표명']===enrollKpi && publicTypes.includes(r['설립구분']));
+    try {
+        const enrollKpi = getInd('학생 충원 성과');
+        if (document.getElementById('sizeEnrollChart') && enrollKpi) {
+            const { group, target } = getLocalFilteredRs(enrollKpi);
+            const publicTypes = ['국립', '국립대법인', '공립'];
+            
+            const privateRecs = appData.records.filter(r => r['연도']===latestYear && r['지표명']===enrollKpi && r['설립구분'] === '사립');
+            const publicRecs = appData.records.filter(r => r['연도']===latestYear && r['지표명']===enrollKpi && publicTypes.includes(r['설립구분']));
 
-        const datasets = [{
-            label: '학생 충원 성과 (점)',
-            data: [
-                getAvgValue(privateRecs),
-                getAvgValue(publicRecs),
-                getAvgValue(group),
-                target ? target['값'] || 0 : 0
-            ],
-            backgroundColor: ['#94a3b8', '#cbd5e1', 'rgba(5,150,105,0.2)', '#059669'],
-            borderRadius: 6
-        }];
-        charts.sizeEnroll = new Chart(document.getElementById('sizeEnrollChart').getContext('2d'), {
-            type: 'bar',
-            data: { labels: ['사립 전체', '국공립 전체', groupLabel, sch], datasets },
-            options: { 
-                responsive: true, maintainAspectRatio: false, 
-                plugins: { 
-                    legend: { display: false },
-                    datalabels: { anchor: 'end', align: 'top', font: { size: 9, weight: 'bold' }, formatter: (v) => v.toFixed(1) }
-                },
-                scales: { y: { beginAtZero: true } }
-            }
-        });
-    }
+            const datasets = [{
+                label: '학생 충원 성과 (점)',
+                data: [
+                    getAvgValue(privateRecs),
+                    getAvgValue(publicRecs),
+                    getAvgValue(group),
+                    (target && target['값'] != null) ? target['값'] : 0
+                ].map(v => (v != null && !isNaN(v)) ? v : 0),
+                backgroundColor: ['#94a3b8', '#cbd5e1', 'rgba(5,150,105,0.2)', '#059669'],
+                borderRadius: 6
+            }];
+            charts.sizeEnroll = new Chart(document.getElementById('sizeEnrollChart').getContext('2d'), {
+                type: 'bar',
+                data: { labels: ['사립 전체', '국공립 전체', groupLabel, sch], datasets },
+                options: { 
+                    responsive: true, maintainAspectRatio: false, 
+                    plugins: { 
+                        legend: { display: false },
+                        datalabels: { anchor: 'end', align: 'top', font: { size: 9, weight: 'bold' }, formatter: (v) => v !== null ? v.toFixed(1) : '-' }
+                    },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+        }
+    } catch (e) { console.error("sizeEnrollChart Error:", e); }
 
     // 1-4. Massive Trends (22 Indicators) with dynamic layout
     const trendsContainer = document.getElementById('massive-trends-container');
@@ -459,90 +654,103 @@ function renderPerformance(sch, cmp, reg, typ) {
         setTimeout(() => {
             const displayYears = appData.filters.years.slice(-3);
             allIndicators.forEach((kpi, idx) => {
-                const ctxNode = document.getElementById(`trend-${idx}`);
-                if(!ctxNode) return;
-                const themeColor = dynamicPalette[idx % dynamicPalette.length];
-                
-                const lineDatasets = [{ 
-                    label: sch, 
-                    data: displayYears.map(y => appData.records.find(r => r['연도']===y && r['지표명']===kpi && r['학교명']===sch)?.값 || null),
-                    borderColor: themeColor, backgroundColor: themeColor + '20', borderWidth: 2.5, fill: true, tension: 0.3, pointRadius: 4 
-                }];
+                try {
+                    const ctxNode = document.getElementById(`trend-${idx}`);
+                    if(!ctxNode) return;
+                    const themeColor = dynamicPalette[idx % dynamicPalette.length];
+                    
+                    const lineDatasets = [{ 
+                        label: sch, 
+                        data: displayYears.map(y => appData.records.find(r => r['연도']===y && r['지표명']===kpi && r['학교명']===sch)?.값 || null),
+                        borderColor: themeColor, backgroundColor: themeColor + '20', borderWidth: 2.5, fill: true, tension: 0.3, pointRadius: 4 
+                    }];
 
-                cmp.forEach((cName, cIdx) => {
-                    lineDatasets.push({
-                        label: cName,
-                        data: displayYears.map(y => appData.records.find(r => r['연도']===y && r['지표명']===kpi && r['학교명']===cName)?.값 || null),
-                        borderColor: cmpColors[cIdx % cmpColors.length], borderDash: [3,3], borderWidth: 1.5, tension: 0.3, pointRadius: 3
+                    cmp.forEach((cName, cIdx) => {
+                        lineDatasets.push({
+                            label: cName,
+                            data: displayYears.map(y => appData.records.find(r => r['연도']===y && r['지표명']===kpi && r['학교명']===cName)?.값 || null),
+                            borderColor: cmpColors[cIdx % cmpColors.length], borderDash: [3,3], borderWidth: 1.5, tension: 0.3, pointRadius: 3
+                        });
                     });
-                });
 
-                lineDatasets.push({ 
-                    label: groupLabel, 
-                    data: displayYears.map(y => getAvgValue(getLocalFilteredRs(kpi, y).group)), 
-                    borderColor: '#9ca3af', borderDash: [5,4], borderWidth: 1.2, tension: 0.3, pointRadius: 0 
-                });
+                    lineDatasets.push({ 
+                        label: groupLabel, 
+                        data: displayYears.map(y => getAvgValue(getLocalFilteredRs(kpi, y).group)), 
+                        borderColor: '#9ca3af', borderDash: [5,4], borderWidth: 1.2, tension: 0.3, pointRadius: 0 
+                    });
 
-                charts.massiveTrends[`trend-${idx}`] = new Chart(ctxNode.getContext('2d'), {
-                    type: 'line',
-                    data: { labels: displayYears, datasets: lineDatasets },
-                    options: { 
-                        responsive: true, maintainAspectRatio: false, 
-                        plugins: { 
-                            legend: { display: false },
-                            datalabels: {
-                                display: (context) => context.datasetIndex === 0, // Only for Target
-                                align: 'top', anchor: 'end', font: { size: 9, weight: 'bold' },
-                                formatter: (v) => v !== null ? v.toLocaleString() : ''
-                            }
-                        },
-                        scales: { x: { ticks: { font: { size: 10 } } }, y: { beginAtZero: false, ticks: { font: { size: 10 } } } }
-                    }
-                });
+                    charts.massiveTrends[`trend-${idx}`] = new Chart(ctxNode.getContext('2d'), {
+                        type: 'line',
+                        data: { labels: displayYears, datasets: lineDatasets },
+                        options: { 
+                            responsive: true, maintainAspectRatio: false, 
+                            plugins: { 
+                                legend: { display: false },
+                                datalabels: {
+                                    display: (context) => context.datasetIndex === 0, // Only for Target
+                                    align: 'top', anchor: 'end', font: { size: 9, weight: 'bold' },
+                                    formatter: (v) => v !== null ? v.toLocaleString() : ''
+                                }
+                            },
+                            scales: { x: { ticks: { font: { size: 10 } } }, y: { beginAtZero: false, ticks: { font: { size: 10 } } } }
+                        }
+                    });
+                } catch (e) { console.error(`Trend Chart ${idx} Error:`, e); }
             });
-        }, 150);
+        }, 300);
     }
 
     // 1-7. Research (Optional additional chart)
-    const r1 = getInd('SCI'), r2 = getInd('교외연구비');
-    if (document.getElementById('researchChart') && (r1 || r2)) {
-        const datasets = [];
-        
-        // Target
-        datasets.push({ 
-            label: sch, 
-            data: [r1, r2].map(k => getPercentile(appData.records.filter(r=>r['연도']===latestYear&&r['지표명']===k), sch, 1).value || 0),
-            backgroundColor: '#1d4ed8' 
-        });
-
-        // Comps
-        cmp.forEach((cName, cIdx) => {
+    try {
+        const r1 = getInd('SCI'), r2 = getInd('교외연구비');
+        if (document.getElementById('researchChart') && (r1 || r2)) {
+            const datasets = [];
+            
+            // Target
             datasets.push({ 
-                label: cName, 
-                data: [r1, r2].map(k => getPercentile(appData.records.filter(r=>r['연도']===latestYear&&r['지표명']===k), cName, 1).value || 0),
-                backgroundColor: cmpColors[cIdx % cmpColors.length] 
+                label: sch, 
+                data: [r1, r2].map(k => {
+                    const p = getPercentile(getLocalFilteredRs(k).group, sch, 1, k, latestYear);
+                    return (p.value != null && !isNaN(p.value)) ? p.value : 0;
+                }),
+                backgroundColor: '#1d4ed8' 
             });
-        });
 
-        // Group Average
-        datasets.push({ 
-            label: groupLabel, 
-            data: [r1, r2].map(k => getAvgValue(getLocalFilteredRs(k).group)), 
-            backgroundColor: '#9ca3af' 
-        });
+            // Comps
+            cmp.forEach((cName, cIdx) => {
+                datasets.push({ 
+                    label: cName, 
+                    data: [r1, r2].map(k => {
+                        const p = getPercentile(getLocalFilteredRs(k).group, cName, 1, k, latestYear);
+                        return (p.value != null && !isNaN(p.value)) ? p.value : 0;
+                    }),
+                    backgroundColor: cmpColors[cIdx % cmpColors.length] 
+                });
+            });
 
-        charts.research = new Chart(document.getElementById('researchChart').getContext('2d'), {
-            type: 'bar',
-            data: { labels: ['논문 성과', '외부 연구비'], datasets },
-            options: { 
-                responsive: true, maintainAspectRatio: false, 
-                plugins: { 
-                    legend: { display: true, position: 'bottom' },
-                    datalabels: { anchor: 'end', align: 'top', font: { size: 9, weight: 'bold' }, formatter: (v) => v.toLocaleString() }
-                } 
-            }
-        });
-    }
+            // Group Average
+            datasets.push({ 
+                label: groupLabel, 
+                data: [r1, r2].map(k => {
+                    const v = getAvgValue(getLocalFilteredRs(k).group);
+                    return (v != null && !isNaN(v)) ? v : 0;
+                }), 
+                backgroundColor: '#9ca3af' 
+            });
+
+            charts.research = new Chart(document.getElementById('researchChart').getContext('2d'), {
+                type: 'bar',
+                data: { labels: ['논문 성과', '외부 연구비'], datasets },
+                options: { 
+                    responsive: true, maintainAspectRatio: false, 
+                    plugins: { 
+                        legend: { display: true, position: 'bottom' },
+                        datalabels: { anchor: 'end', align: 'top', font: { size: 9, weight: 'bold' }, formatter: (v) => v !== null ? v.toLocaleString() : '-' }
+                    } 
+                }
+            });
+        }
+    } catch (e) { console.error("researchChart Error:", e); }
 }
 
 // 2. Benchmarking
@@ -587,11 +795,12 @@ function renderBenchmarking(sch, cmp, ind) {
         options: {
             indexAxis: 'y', // horizontal bar
             responsive: true, maintainAspectRatio: false,
+            layout: { padding: { right: 60 } }, // Increase right padding to avoid datalabel clipping
             plugins: { 
                 legend: { display: false },
                 datalabels: {
                     anchor: 'end', align: 'right', font: { size: 10, weight: 'bold' },
-                    formatter: (v) => v.toLocaleString()
+                    formatter: (v) => formatKpiValue(v, ind)
                 }
             },
             scales: { x: { beginAtZero: true, ticks: { display: false }, grid: { display: false } } }
@@ -645,7 +854,19 @@ function renderScatter(sch, cmp, regFilter, typFilter) {
             responsive: true, maintainAspectRatio: false,
             plugins: {
                 legend: { display: false },
-                tooltip: { callbacks: { label: (c) => `${c.raw.school}: (${c.raw.x.toFixed(1)}, ${c.raw.y.toFixed(1)})` } }
+                datalabels: { display: false },
+                tooltip: { 
+                    callbacks: { 
+                        label: (c) => {
+                            const d = c.raw;
+                            return [
+                                `${d.school}`,
+                                `X ${indX.replace(/\[\d+\.\d+\]\s*/, '')} : ${formatKpiValue(d.x, indX)}`,
+                                `Y ${indY.replace(/\[\d+\.\d+\]\s*/, '')} : ${formatKpiValue(d.y, indY)}`
+                            ];
+                        }
+                    } 
+                }
             },
             scales: {
                 x: { title: { display: true, text: indX } },
@@ -655,7 +876,9 @@ function renderScatter(sch, cmp, regFilter, typFilter) {
     });
 }
 
-// 4. Ranking
+// Global Sort State for Rankings
+let currentSort = { col: '값', dir: 'desc' };
+
 function renderRanking(sch, cmp, ind, regFilter, typFilter) {
     const latestYear = getActiveYear();
     let rs = appData.records.filter(r => r['연도'] === latestYear && r['지표명'] === ind && r['값'] != null);
@@ -663,23 +886,57 @@ function renderRanking(sch, cmp, ind, regFilter, typFilter) {
     if (regFilter !== 'all') rs = rs.filter(r => r['지역'] === regFilter);
     if (typFilter !== 'all') rs = rs.filter(r => r['설립구분'] === typFilter);
 
-    // Sort descending
+    // Initial idx assignment before sorting to maintain absolute rank? 
+    // Usually rank is based on the value in the filtered list
     rs.sort((a,b) => b['값'] - a['값']);
+    rs.forEach((r, i) => r._rank = i + 1);
+
+    // Apply selected sort
+    rs.sort((a, b) => {
+        let vA = a[currentSort.col];
+        let vB = b[currentSort.col];
+        if (currentSort.col === 'rank') { vA = a._rank; vB = b._rank; }
+        
+        if (vA < vB) return currentSort.dir === 'asc' ? -1 : 1;
+        if (vA > vB) return currentSort.dir === 'asc' ? 1 : -1;
+        return 0;
+    });
+
+    const thead = document.querySelector('#ranking-table thead');
+    if (thead && !thead.dataset.bound) {
+        thead.dataset.bound = "true";
+        thead.querySelectorAll('th').forEach(th => {
+            th.addEventListener('click', () => {
+                const colMap = { '순위': 'rank', '학교명': '학교명', '지역': '지역', '설립구분': '설립구분', '지푯값': '값' };
+                const col = colMap[th.innerText.trim()] || '값';
+                if (currentSort.col === col) {
+                    currentSort.dir = currentSort.dir === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSort.col = col;
+                    currentSort.dir = 'desc';
+                }
+                // Update icons
+                thead.querySelectorAll('th').forEach(t => t.classList.remove('sort-asc', 'sort-desc'));
+                th.classList.add(currentSort.dir === 'asc' ? 'sort-asc' : 'sort-desc');
+                renderRanking(sch, cmp, ind, regFilter, typFilter);
+            });
+        });
+    }
 
     const tbody = document.querySelector('#ranking-table tbody');
     tbody.innerHTML = '';
 
-    rs.forEach((r, idx) => {
+    rs.forEach((r) => {
         const tr = document.createElement('tr');
         if(r['학교명'] === sch) tr.style.backgroundColor = 'rgba(242, 204, 96, 0.15)';
         else if(cmp.includes(r['학교명'])) tr.style.backgroundColor = 'rgba(255, 123, 114, 0.15)';
 
         tr.innerHTML = `
-            <td>${idx + 1}</td>
+            <td>${r._rank}</td>
             <td style="font-weight:600">${r['학교명']}</td>
             <td>${r['지역']}</td>
             <td>${r['설립구분']}</td>
-            <td class="val-highlight">${r['값'].toFixed(2)}</td>
+            <td class="val-highlight">${formatKpiValue(r['값'], ind)}</td>
         `;
         tbody.appendChild(tr);
     });
@@ -727,7 +984,7 @@ function renderEvaluation(sch) {
         tr.innerHTML = `
             <td style="font-weight:500;">${ind}</td>
             <td>${unit}</td>
-            <td class="val-highlight">${avgVal.toFixed(2)}</td>
+            <td class="val-highlight">${formatKpiValue(avgVal, ind)}</td>
             <td>${goal}</td>
             <td><span class="badge ${isPass ? 'pass' : 'fail'}">${isPass ? 'PASS' : 'FAIL'}</span></td>
             <td class="stars">${stars}</td>
@@ -739,24 +996,44 @@ function renderEvaluation(sch) {
 // 6. Rivalry
 function renderRivalry(sch, cmp) {
     const targetNameEl = document.getElementById('rival-a-name');
-    const compareNameEl = document.getElementById('rival-b-name');
     const container = document.getElementById('rival-rows-container');
+    const rivalryCompareSelect = document.getElementById('rivalry-compare-select');
 
-    if(!targetNameEl || !container) return;
+    if(!targetNameEl || !container || !rivalryCompareSelect) return;
 
     targetNameEl.innerText = sch === 'all' ? '전체 평균' : sch;
-    const firstComp = cmp.length > 0 ? cmp[0] : null;
-    compareNameEl.innerText = firstComp || '비교 대학을 선택하세요';
+
+    // Repopulate rivalry select
+    const currentVal = rivalryCompareSelect.value;
+    rivalryCompareSelect.innerHTML = '<option value="">비교 대학을 선택하세요</option>';
+    appData.filters.schools.forEach(s => {
+        if (s !== sch && s !== 'all') {
+            const opt = document.createElement('option');
+            opt.value = s;
+            opt.textContent = s;
+            if (s === currentVal) opt.selected = true;
+            rivalryCompareSelect.appendChild(opt);
+        }
+    });
+
+    const firstComp = rivalryCompareSelect.value || (cmp.length > 0 ? cmp[0] : null);
+    if (firstComp && firstComp !== rivalryCompareSelect.value) {
+        // If empty but global cmp has one, sync it
+        rivalryCompareSelect.value = firstComp;
+    }
 
     container.innerHTML = '';
 
     if(sch === 'all' || !firstComp) {
-        container.innerHTML = '<div style="color:var(--text-secondary); text-align:center; padding: 2rem;">기준 대학과 비교 대학을 선택해 주세요.</div>';
+        container.innerHTML = '<div style="color:var(--text-secondary); text-align:center; padding: 2rem;">기준 대학과 비교 대학(우측 드롭다운)을 선택해 주세요.</div>';
         return;
     }
 
     const latestYear = getActiveYear();
-    const allKpis = appData.filters.indicators.filter(i => /^\[\d+\.\d+\]/.test(i));
+    const allKpis = appData.filters.indicators.filter(i => /^\[\d+\.\d+\]/.test(i) && !i.includes('연구성과 기준값 대비 실적'));
+
+    let superior = 0, competitive = 0, inferior = 0;
+    const rowElements = [];
 
     allKpis.forEach(kpi => {
         const vA = appData.records.find(r => r['연도']===latestYear && r['지표명']===kpi && r['학교명']===sch)?.값 || 0;
@@ -770,6 +1047,10 @@ function renderRivalry(sch, cmp) {
         const aWins = dir === 1 ? vA > vB : vA < vB;
         const bWins = dir === 1 ? vB > vA : vB < vA;
 
+        if (aWins) superior++;
+        else if (bWins) inferior++;
+        else competitive++;
+
         const row = document.createElement('div');
         row.className = 'rivalry-row';
 
@@ -778,7 +1059,7 @@ function renderRivalry(sch, cmp) {
             <div class="rivalrow-side left ${aWins ? 'is-winner' : ''}">
                 ${aWins ? '<span class="win-badge blue">Win 👍</span>' : ''}
                 <div>
-                    <span class="rival-val">${vA.toLocaleString(undefined, {minimumFractionDigits:1, maximumFractionDigits:1})}</span>
+                    <span class="rival-val">${formatKpiValue(vA, kpi)}</span>
                     <span class="rival-unit">${unit}</span>
                 </div>
             </div>
@@ -790,17 +1071,49 @@ function renderRivalry(sch, cmp) {
         // Compare Side
         const compareSide = `
             <div class="rivalrow-side right ${bWins ? 'is-winner' : ''}">
-                ${bWins ? '<span class="win-badge red">Win 👍</span>' : ''}
                 <div>
-                    <span class="rival-val">${vB.toLocaleString(undefined, {minimumFractionDigits:1, maximumFractionDigits:1})}</span>
+                    <span class="rival-val">${formatKpiValue(vB, kpi)}</span>
                     <span class="rival-unit">${unit}</span>
                 </div>
+                ${bWins ? '<span class="win-badge red">Win 👍</span>' : ''}
             </div>
         `;
 
         row.innerHTML = targetSide + centerInd + compareSide;
-        container.appendChild(row);
+        rowElements.push(row);
     });
+
+    // Scoreboard Summary
+    const winRate = (superior + inferior) > 0 ? (superior / (superior + inferior) * 100) : 0;
+    
+    const summaryBar = document.createElement('div');
+    summaryBar.className = 'rivalry-summary-bar';
+    summaryBar.innerHTML = `
+        <div class="summary-cards">
+            <div class="summary-card win">
+                <span class="label">우세 (Superior)</span>
+                <span class="count">${superior}</span>
+            </div>
+            <div class="summary-card draw">
+                <span class="label">경합 (Competitive)</span>
+                <span class="count">${competitive}</span>
+            </div>
+            <div class="summary-card loss">
+                <span class="label">열세 (Inferior)</span>
+                <span class="count">${inferior}</span>
+            </div>
+        </div>
+        <div class="win-rate-container">
+            <div class="win-rate-label">상대적 승률 (Win Rate)</div>
+            <div class="win-rate-value">${winRate.toFixed(1)}%</div>
+            <div class="win-rate-gauge">
+                <div class="win-rate-fill" style="width: ${winRate}%"></div>
+            </div>
+        </div>
+    `;
+
+    container.appendChild(summaryBar);
+    rowElements.forEach(row => container.appendChild(row));
 }
 
 // 7. Radar function (Benchmarking Page)
@@ -816,7 +1129,7 @@ function updateRadarIndicatorFiltersUI() {
     const container = document.getElementById('radar-indicator-filters');
     if (!container || container.children.length > 0) return; // Only populate once
 
-    const allIndicators = appData.filters.indicators.filter(i => /^\[\d+\.\d+\]/.test(i));
+    const allIndicators = appData.filters.indicators.filter(i => /^\[\d+\.\d+\]/.test(i) && !i.includes('연구성과 기준값 대비 실적'));
     
     allIndicators.forEach(ind => {
         const label = document.createElement('label');
@@ -887,8 +1200,11 @@ function renderRadar(sch, cmp) {
         const rawValues = [];
 
         selectedRadarIndicators.map(k => {
-            const rs = appData.records.filter(r => r['연도'] === latestYear && r['지표명'] === k);
-            const p = getPercentile(rs, sName, dirLookup(k));
+            const rReg = document.getElementById('region-select').value;
+            const rTyp = document.getElementById('type-select').value;
+            const groupRs = getFilteredRs(k, latestYear, sName, [], rReg, rTyp).group;
+            
+            const p = getPercentile(groupRs, sName, dirLookup(k), k, latestYear);
             data.push(p.score || 0);
             
             // Get raw value and unit
@@ -940,8 +1256,8 @@ function renderRadar(sch, cmp) {
                 r: {
                     min: 0, max: 100, beginAtZero: true,
                     ticks: { stepSize: 25, display: true, font: { size: 9 }, backdropColor: 'transparent' },
-                    grid: { color: '#f3f4f6' },
-                    angleLines: { color: '#f3f4f6' },
+                    grid: { color: '#d1d5db' },
+                    angleLines: { color: '#d1d5db' },
                     pointLabels: { font: { size: 10, weight: '700' }, color: '#374151' }
                 }
             }

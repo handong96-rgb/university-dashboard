@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>대학경쟁력지표 Performance Dashboard</title>
-    <link rel="stylesheet" href="style.css?v=1.0.1">
+    <link rel="stylesheet" href="style.css?v=1.1">
     <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
@@ -51,9 +51,12 @@
                     <select id="school-select" class="glass-input"></select>
                 </div>
                 <div class="filter-group">
-                    <label>비교 대학 (Compare - 다중선택 가능)</label>
-                    <select id="compare-select" class="glass-input" multiple size="5" style="height: auto; padding: 0.2rem;">
-                    </select>
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <label>비교 대학 (Compare)</label>
+                        <span id="compare-count" style="font-size:10px; color:var(--hgu-blue); font-weight:700;">0개 선택</span>
+                    </div>
+                    <select id="compare-select" class="glass-input" multiple size="5" style="height: auto; padding: 0.2rem;"></select>
+                    <button id="clear-compare" style="margin-top:4px; padding:4px; font-size:10px; background:#f3f4f6; border:1px solid #ddd; border-radius:4px; cursor:pointer; color:var(--text-secondary); width:100%;">× 선택 모두 해제</button>
                 </div>
                 <div class="filter-group indicator-filter-container">
                     <label>분석 기준 지표 (단일조회용)</label>
@@ -133,15 +136,15 @@
                         <h2>벤치마킹 분석 <span class="subtitle">| 주요 그룹(설립/지역) 대비 현황 및 다면 평가</span></h2>
                     </div>
                     <div style="display:flex; gap:1.5rem; flex:1; min-height: 400px;">
-                        <div class="chart-box large" style="flex:1.5;">
+                        <div class="chart-box large" style="flex:1;">
                             <div class="chart-box-header">
                                 <span class="dynamic-indicator-name">지표</span> 벤치마킹 (최신연도 기준)
                             </div>
-                            <div class="chart-box-body">
+                            <div class="chart-box-body" style="flex:1; position:relative; min-height:250px;">
                                 <canvas id="benchmark-canvas"></canvas>
                             </div>
                         </div>
-                        <div class="chart-card" style="flex:1;">
+                        <div class="chart-card" style="flex:2;">
                             <div class="chart-title">다면 평가 레이더 차트 (표준 스케일)</div>
                             
                             <div style="margin-top:10px;">
@@ -233,10 +236,14 @@
                     
                     <div class="rivalry-arena" id="rival-arena-container">
                         <!-- Header Row -->
-                        <div class="rivalry-header-row">
-                            <h2 class="target-name" id="rival-a-name">Target University</h2>
-                            <div style="text-align:center;"><div class="vs-badge" style="margin: 0 auto;">VS</div></div>
-                            <h2 class="compare-name" id="rival-b-name">Comparison University</h2>
+                        <div class="rivalry-header-row" style="align-items: center;">
+                            <h2 class="target-name" id="rival-a-name" style="flex:1; text-align:center; margin:0;">Target University</h2>
+                            <div style="text-align:center; padding:0 20px;"><div class="vs-badge" style="margin: 0 auto;">VS</div></div>
+                            <div style="flex:1; text-align:center;">
+                                <select id="rivalry-compare-select" class="compare-name" style="background:transparent; border:none; width:100%; text-align:center; text-align-last:center; cursor:pointer; outline:none; -webkit-appearance: none; appearance: none;">
+                                    <option value="">비교 대학을 선택하세요</option>
+                                </select>
+                            </div>
                         </div>
 
                         <!-- Dynamic Rows will be inserted here -->
@@ -247,6 +254,6 @@
             </main>
         </div>
     </div>
-    <script src="app.js?v=1.0.1"></script>
+    <script src="app.js?v=2.2"></script>
 </body>
 </html>
