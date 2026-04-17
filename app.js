@@ -188,7 +188,11 @@ function updateDashboard() {
     document.querySelectorAll('.dynamic-indicator-name').forEach(el => el.innerText = ind);
 
     if(activePageId === 'page-performance') renderPerformance(sch, cmp, reg, typ);
-    if(activePageId === 'page-benchmarking') { renderBenchmarking(sch, cmp, ind); renderRadar(sch, cmp); }
+    if(activePageId === 'page-benchmarking') { 
+        renderBenchmarking(sch, cmp, ind); 
+        updateRadarFiltersUI(sch, cmp); // Handle radar checkboxes
+        renderRadar(sch, cmp); 
+    }
     if(activePageId === 'page-scatter') renderScatter(sch, cmp, reg, typ);
     if(activePageId === 'page-ranking') renderRanking(sch, cmp, ind, reg, typ);
     if(activePageId === 'page-evaluation') renderEvaluation(sch);
@@ -767,49 +771,108 @@ function renderRivalry(sch, cmp) {
     });
 }
 
-// 7. Radar function
+// 7. Radar function (Benchmarking Page)
+let radarVisibility = {}; // Global state to track radar checkbox status
+
+function updateRadarFiltersUI(sch, cmp) {
+    const container = document.getElementById('radar-legend-filters');
+    if (!container) return;
+
+    const currentSchools = [sch, ...cmp].filter(s => s !== 'all');
+    
+    // Clear removed schools from visibility map, add new ones default true
+    const newVisibility = {};
+    currentSchools.forEach(s => {
+        newVisibility[s] = (radarVisibility[s] !== undefined) ? radarVisibility[s] : true;
+    });
+    radarVisibility = newVisibility;
+
+    container.innerHTML = '';
+    currentSchools.forEach((s, idx) => {
+        const span = document.createElement('label');
+        span.style.cssText = 'display:flex; align-items:center; gap:4px; cursor:pointer; padding:2px 6px; border-radius:4px; background:#fff; border:1px solid #e5e7eb;';
+        
+        const color = (s === sch) ? '#1d4ed8' : cmpColors[(idx - 1) % cmpColors.length];
+        
+        span.innerHTML = `
+            <input type="checkbox" ${radarVisibility[s] ? 'checked' : ''} data-school="${s}">
+            <span style="color:${color}; font-weight:600;">${s}</span>
+        `;
+        
+        span.querySelector('input').addEventListener('change', (e) => {
+            radarVisibility[s] = e.target.checked;
+            renderRadar(sch, cmp); // Re-render radar only
+        });
+        
+        container.appendChild(span);
+    });
+}
+
 function renderRadar(sch, cmp) {
-    const ctx = document.getElementById('radar-canvas').getContext('2d');
+    const ctx = document.getElementById('radar-canvas');
+    if(!ctx) return;
     if(charts.radar) charts.radar.destroy();
 
-    const radarKpis = ['[1.3] 교육비 환원율', '[1.5] 학생 충원 성과', '[1.5] 졸업생 진로 성과', '[3.1] 전임교원 및 겸임교원 확보율', '[4.1] 장학금 비율'];
+    const radarKpis = [
+        '[1.3] 교육비 환원율', 
+        '[1.5] 학생 충원 성과', 
+        '[1.5] 졸업생 진로 성과', 
+        '[3.1] 전임교원 및 겸임교원 확보율', 
+        '[4.1] 장학금 비율'
+    ];
     const latestYear = getActiveYear();
-
     const labels = radarKpis.map(k => k.replace(/\[\d+\.\d+\]\s*/, ''));
     
-    // Dataset for Target
-    const datasets = [{
-        label: sch === 'all' ? '전체 평균' : sch,
-        data: radarKpis.map(k => {
-            let rs = appData.records.filter(r => r['연도'] === latestYear && r['지표명'] === k);
-            return sch === 'all' ? (getAvgValue(rs)||10) : (rs.find(r => r['학교명'] === sch)?.값 || 10);
-        }),
-        backgroundColor: 'rgba(242, 204, 96, 0.4)', borderColor: '#f2cc60', pointBackgroundColor: '#f2cc60'
-    }];
+    const datasets = [];
 
-    // Datasets for Compare
-    if(cmp.length > 0) {
-        const cmpColors = ['#ff7b72', '#a371f7', '#3fb950', '#58a6ff'];
-        cmp.forEach((cSchool, idx) => {
-            const cColor = cmpColors[idx % cmpColors.length];
-            datasets.push({
-                label: cSchool,
-                data: radarKpis.map(k => {
-                    let rs = appData.records.filter(r => r['연도'] === latestYear && r['지표명'] === k);
-                    return rs.find(r => r['학교명'] === cSchool)?.값 || 10;
-                }),
-                backgroundColor: 'transparent', borderColor: cColor, pointBackgroundColor: cColor, borderDash: [5,5]
-            });
+    // All participating schools (Target + Compare)
+    const allSchools = [sch, ...cmp].filter(s => s !== 'all');
+
+    allSchools.forEach((sName, sIdx) => {
+        // Only include if visible in our toggle map
+        if (!radarVisibility[sName]) return;
+
+        const isTarget = (sName === sch);
+        const color = isTarget ? '#1d4ed8' : cmpColors[(sIdx - 1) % cmpColors.length];
+        const dirLookup = (k) => (TARGETS[k] || {dir: 1}).dir;
+
+        const data = radarKpis.map(k => {
+            const rs = appData.records.filter(r => r['연도'] === latestYear && r['지표명'] === k);
+            const p = getPercentile(rs, sName, dirLookup(k));
+            return p.score || 0; // Use Score (0-100) instead of raw value
         });
-    }
 
-    charts.radar = new Chart(ctx, {
+        datasets.push({
+            label: sName,
+            data: data,
+            backgroundColor: isTarget ? 'rgba(29, 78, 216, 0.15)' : 'transparent',
+            borderColor: color,
+            pointBackgroundColor: color,
+            borderWidth: isTarget ? 3 : 2,
+            borderDash: isTarget ? [] : [4, 4],
+            fill: isTarget
+        });
+    });
+
+    charts.radar = new Chart(ctx.getContext('2d'), {
         type: 'radar',
         data: { labels, datasets },
         options: {
             responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { position: 'bottom' } },
-            scales: { r: { ticks: { display: false }, grid: { color: 'rgba(255, 255, 255, 0.1)' }, angleLines: { color: 'rgba(255, 255, 255, 0.1)' } } }
+            plugins: { 
+                legend: { display: false } // We have our own manual legend/filters
+            },
+            scales: {
+                r: {
+                    min: 0,
+                    max: 100,
+                    beginAtZero: true,
+                    ticks: { stepSize: 20, display: true, font: { size: 10 } },
+                    grid: { color: '#e5e7eb' },
+                    angleLines: { color: '#e5e7eb' },
+                    pointLabels: { font: { size: 11, weight: '600' } }
+                }
+            }
         }
     });
 }

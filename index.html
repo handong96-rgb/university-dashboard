@@ -140,9 +140,14 @@
                                 <canvas id="benchmark-canvas"></canvas>
                             </div>
                         </div>
-                        <div class="chart-box" style="flex:1;">
-                            <div class="chart-box-header">5대 핵심 지표 다면 평가 (레이더 차트)</div>
-                            <div class="chart-box-body" style="display:flex; justify-content:center; align-items:center;">
+                        <div class="chart-card" style="flex:1;">
+                            <div class="chart-title">5대 핵심 지표 다면 평가 (레이더 차트)</div>
+                            <div class="chart-subtitle">전국 백분위 점수 기반 (100 = 전국 최상위)</div>
+                            
+                            <!-- Radar Filter Checkboxes -->
+                            <div id="radar-legend-filters" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; padding:8px; background:#f9fafb; border-radius:8px; font-size:12px;"></div>
+
+                            <div class="chart-wrap" style="height:350px;">
                                 <canvas id="radar-canvas"></canvas>
                             </div>
                         </div>
