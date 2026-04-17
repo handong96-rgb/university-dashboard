@@ -377,62 +377,126 @@ body {
 /* Rivalry UI */
 .rivalry-arena {
     display: flex;
-    align-items: stretch;
-    justify-content: space-between;
-    padding: 2rem;
-    background: var(--surface);
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    min-height: 500px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.02);
-}
-
-.rival-col {
-    flex: 1;
-    background: #f9fafb;
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 2rem;
-    display: flex;
     flex-direction: column;
+    gap: 3rem;
+    padding: 2.5rem;
+    background: #fff;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.05);
 }
 
-.left-rival {
-    border-top: 5px solid var(--hgu-blue);
-    background: #f0f5ff;
+.rivalry-header-row {
+    display: grid;
+    grid-template-columns: 1fr 120px 1fr;
+    gap: 20px;
+    align-items: center;
+    margin-bottom: 20px;
 }
 
-.right-rival {
-    border-top: 5px solid var(--negative);
-    background: #fff5f5;
-}
-
-.rival-name {
-    font-size: 2rem;
+.rivalry-header-row h2 {
+    font-size: 1.8rem;
     font-weight: 800;
     text-align: center;
-    margin-bottom: 2rem;
-    color: var(--text-primary);
+    padding: 1rem;
+    border-bottom: 4px solid var(--border);
 }
 
-.rival-vs {
-    display: flex;
+.rivalry-header-row .target-name { border-color: var(--hgu-blue); color: var(--hgu-blue); }
+.rivalry-header-row .compare-name { border-color: var(--negative); color: var(--negative); }
+
+.rivalry-row {
+    display: grid;
+    grid-template-columns: 1fr 180px 1fr;
+    gap: 15px;
     align-items: center;
-    padding: 0 1.5rem;
+    padding: 12px;
+    border-radius: 12px;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
 }
 
-.vs-badge {
-    width: 60px;
-    height: 60px;
-    background: linear-gradient(135deg, #1d4ed8, #dc2626);
-    color: #fff;
-    border-radius: 50%;
+.rivalry-row:hover {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+}
+
+.rivalry-row .ind-label {
+    text-align: center;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    background: #f1f5f9;
+    padding: 10px;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
+    min-height: 50px;
+    line-height: 1.2;
+}
+
+.rivalrow-side {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 15px;
+    padding: 10px 20px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    position: relative;
+    height: 100%;
+}
+
+.rivalrow-side.right {
+    justify-content: flex-start;
+    flex-direction: row-reverse;
+}
+
+.rivalrow-side.is-winner {
+    background: #f0f7ff;
+    border-color: var(--hgu-blue);
+    box-shadow: 0 4px 12px rgba(29, 78, 216, 0.1);
+}
+
+.rivalrow-side.right.is-winner {
+    background: #fff5f5;
+    border-color: var(--negative);
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.1);
+}
+
+.rival-val {
+    font-size: 1.2rem;
     font-weight: 800;
-    font-size: 1.5rem;
-    box-shadow: 0 0 15px rgba(0,0,0,0.1);
+    color: var(--text-primary);
+}
+
+.rival-unit {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-left: 2px;
+}
+
+.win-badge {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.win-badge.blue {
+    background: var(--hgu-blue);
+    color: #fff;
+}
+
+.win-badge.red {
+    background: var(--negative);
+    color: #fff;
 }
 
 .rival-stats {

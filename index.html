@@ -230,22 +230,16 @@
                         <p class="subtitle" style="margin-top:0.5rem;">선택된 양 대학 간의 1:1 진검승부 지표 대결</p>
                     </div>
                     
-                    <div class="rivalry-arena">
-                        <!-- Left University -->
-                        <div class="rival-col left-rival">
-                            <h2 class="rival-name" id="rival-a-name">Target University</h2>
-                            <div class="rival-stats" id="rival-a-stats"></div>
+                    <div class="rivalry-arena" id="rival-arena-container">
+                        <!-- Header Row -->
+                        <div class="rivalry-header-row">
+                            <h2 class="target-name" id="rival-a-name">Target University</h2>
+                            <div style="text-align:center;"><div class="vs-badge" style="margin: 0 auto;">VS</div></div>
+                            <h2 class="compare-name" id="rival-b-name">Comparison University</h2>
                         </div>
 
-                        <!-- VS Center -->
-                        <div class="rival-vs">
-                            <div class="vs-badge">VS</div>
-                        </div>
-
-                        <!-- Right University (Dynamic based on multi-select) -->
-                        <div class="rival-col right-rival" id="rival-compare-container" style="flex:1; display:flex; flex-direction:column; gap:1.5rem; border:none; padding:0; overflow:hidden;">
-                            <!-- Populated by JS -->
-                        </div>
+                        <!-- Dynamic Rows will be inserted here -->
+                        <div id="rival-rows-container"></div>
                     </div>
                 </div>
 

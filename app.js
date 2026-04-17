@@ -700,78 +700,68 @@ function renderEvaluation(sch) {
 
 // 6. Rivalry
 function renderRivalry(sch, cmp) {
-    document.getElementById('rival-a-name').innerText = sch === 'all' ? 'Target Univ' : sch;
+    const targetNameEl = document.getElementById('rival-a-name');
+    const compareNameEl = document.getElementById('rival-b-name');
+    const container = document.getElementById('rival-rows-container');
 
-    const statsA = document.getElementById('rival-a-stats');
-    const rightContainer = document.getElementById('rival-compare-container');
-    statsA.innerHTML = ''; rightContainer.innerHTML = '';
+    if(!targetNameEl || !container) return;
 
-    if(sch === 'all' || cmp.length === 0) {
-        const msg = '<div style="color:var(--text-secondary); text-align:center;">기준 대학과 비교 대학을 모두 1개 이상 선택해주세요.</div>';
-        statsA.innerHTML = msg; rightContainer.innerHTML = `<div class="rival-col right-rival">${msg}</div>`;
+    targetNameEl.innerText = sch === 'all' ? '전체 평균' : sch;
+    const firstComp = cmp.length > 0 ? cmp[0] : null;
+    compareNameEl.innerText = firstComp || '비교 대학을 선택하세요';
+
+    container.innerHTML = '';
+
+    if(sch === 'all' || !firstComp) {
+        container.innerHTML = '<div style="color:var(--text-secondary); text-align:center; padding: 2rem;">기준 대학과 비교 대학을 선택해 주세요.</div>';
         return;
     }
 
     const latestYear = getActiveYear();
-
     const allKpis = appData.filters.indicators.filter(i => /^\[\d+\.\d+\]/.test(i));
 
-    // Build Stats A (Target)
     allKpis.forEach(kpi => {
-        let vA = appData.records.find(r => r['연도']===latestYear && r['지표명']===kpi && r['학교명']===sch)?.값 || 0;
-        
-        // Competitor range for color highlight
-        let allCmpVals = cmp.map(cSchool => appData.records.find(r => r['연도']===latestYear && r['지표명']===kpi && r['학교명']===cSchool)?.값 || 0);
-        let maxCmp = Math.max(...allCmpVals);
-        let minCmp = Math.min(...allCmpVals);
+        const vA = appData.records.find(r => r['연도']===latestYear && r['지표명']===kpi && r['학교명']===sch)?.값 || 0;
+        const vB = appData.records.find(r => r['연도']===latestYear && r['지표명']===kpi && r['학교명']===firstComp)?.값 || 0;
 
         const kpiName = kpi.replace(/\[\d+\.\d+\]\s*/, '');
         const meta = appData.indicator_metadata.find(m => m['지표명'] === kpi);
         const unit = meta && meta['단위'] !== 'NaN' ? meta['단위'] : '';
         const dir = (TARGETS[kpi] || {dir: 1}).dir;
 
-        const aWins = dir === 1 ? vA > maxCmp : vA < minCmp;
+        const aWins = dir === 1 ? vA > vB : vA < vB;
+        const bWins = dir === 1 ? vB > vA : vB < vA;
 
-        statsA.innerHTML += `
-            <div class="rival-stat ${aWins ? 'win' : ''}">
-                <div class="stat-name">${kpiName}</div>
-                <div><span class="stat-val">${vA.toLocaleString(undefined, {minimumFractionDigits:1, maximumFractionDigits:1})}</span><span class="stat-unit">${unit}</span></div>
-            </div>`;
-    });
+        const row = document.createElement('div');
+        row.className = 'rivalry-row';
 
-    // Build Stats B, C... (Compare Schools)
-    cmp.forEach(cSchool => {
-        let col = document.createElement('div');
-        col.className = "rival-col right-rival";
-        col.style.overflow = 'visible';
-        
-        let h2 = document.createElement('h2');
-        h2.className = "rival-name";
-        h2.innerText = cSchool;
-        col.appendChild(h2);
+        // Target Side
+        const targetSide = `
+            <div class="rivalrow-side left ${aWins ? 'is-winner' : ''}">
+                ${aWins ? '<span class="win-badge blue">Win 👍</span>' : ''}
+                <div>
+                    <span class="rival-val">${vA.toLocaleString(undefined, {minimumFractionDigits:1, maximumFractionDigits:1})}</span>
+                    <span class="rival-unit">${unit}</span>
+                </div>
+            </div>
+        `;
 
-        let statsB = document.createElement('div');
-        statsB.className = "rival-stats";
+        // Center Indicator
+        const centerInd = `<div class="ind-label">${kpiName}</div>`;
 
-        allKpis.forEach(kpi => {
-            let vA = appData.records.find(r => r['연도']===latestYear && r['지표명']===kpi && r['학교명']===sch)?.값 || 0;
-            let vB = appData.records.find(r => r['연도']===latestYear && r['지표명']===kpi && r['학교명']===cSchool)?.값 || 0;
+        // Compare Side
+        const compareSide = `
+            <div class="rivalrow-side right ${bWins ? 'is-winner' : ''}">
+                ${bWins ? '<span class="win-badge red">Win 👍</span>' : ''}
+                <div>
+                    <span class="rival-val">${vB.toLocaleString(undefined, {minimumFractionDigits:1, maximumFractionDigits:1})}</span>
+                    <span class="rival-unit">${unit}</span>
+                </div>
+            </div>
+        `;
 
-            const kpiName = kpi.replace(/\[\d+\.\d+\]\s*/, '');
-            const meta = appData.indicator_metadata.find(m => m['지표명'] === kpi);
-            const unit = meta && meta['단위'] !== 'NaN' ? meta['단위'] : '';
-            const dir = (TARGETS[kpi] || {dir: 1}).dir;
-
-            const bWins = dir === 1 ? vB > vA : vB < vA;
-
-            statsB.innerHTML += `
-                <div class="rival-stat ${bWins ? 'win' : ''}">
-                    <div class="stat-name" style="width: auto;"></div>
-                    <div><span class="stat-val">${vB.toLocaleString(undefined, {minimumFractionDigits:1, maximumFractionDigits:1})}</span><span class="stat-unit">${unit}</span></div>
-                </div>`;
-        });
-        col.appendChild(statsB);
-        rightContainer.appendChild(col);
+        row.innerHTML = targetSide + centerInd + compareSide;
+        container.appendChild(row);
     });
 }
 
