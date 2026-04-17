@@ -338,7 +338,10 @@ function renderPerformance(sch, cmp, reg, typ) {
             },
             options: { 
                 responsive: true, maintainAspectRatio: false, 
-                plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }, 
+                plugins: { 
+                    legend: { display: true, position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } },
+                    datalabels: { display: false }
+                }, 
                 scales: { r: { min: 0, max: 100, ticks: { display: false }, pointLabels: { font: { size: 10, weight: '600' } } } } 
             }
         });
@@ -926,6 +929,11 @@ function renderRadar(sch, cmp) {
                             return ` ${context.dataset.label}: ${score.toFixed(1)}점 (실제값: ${val}${rawObj.unit})`;
                         }
                     }
+                },
+                datalabels: {
+                    display: true,
+                    anchor: 'end', align: 'top', font: { size: 10, weight: 'bold' },
+                    formatter: (v) => v !== null && v !== undefined ? Number(v).toFixed(2) : ''
                 }
             },
             scales: {
