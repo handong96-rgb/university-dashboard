@@ -265,7 +265,17 @@ function getAvgValue(rs) {
     return sum / valid.length;
 }
 
-function getPercentile(rs, school, dir, kpiName, year) {
+function getIndicatorDirection(indName) {
+    // 1: Higher is better ('정'), -1: Lower is better ('부')
+    if (!appData || !appData.indicator_metadata) return (TARGETS[indName] || {dir: 1}).dir;
+    const meta = appData.indicator_metadata.find(m => m['지표명'] === indName);
+    if (meta && meta['평가성향'] === '부') return -1;
+    if (meta && meta['평가성향'] === '정') return 1;
+    // Fallback to TARGETS hardcoded dir if metadata is missing
+    return (TARGETS[indName] || {dir: 1}).dir;
+}
+
+function getPercentile(rs, school, kpiName, year) {
     if(!school || school === 'all') return { value: null, topPct: 50, score: 50 };
     
     // Safety check for metadata extraction
@@ -290,8 +300,10 @@ function getPercentile(rs, school, dir, kpiName, year) {
         valid.push(schoolValue);
     }
     
+    const direction = getIndicatorDirection(kpi);
+    
     valid.sort((a,b) => b - a); // desc
-    if(dir === -1) valid.sort((a,b) => a - b); // asc if lower is better
+    if(direction === -1) valid.sort((a,b) => a - b); // asc if lower is better
 
     let rank = valid.indexOf(schoolValue) + 1;
     let rankPct = (rank / valid.length) * 100;
@@ -399,10 +411,10 @@ function renderPerformance(sch, cmp, reg, typ) {
     try {
         CORE_8_KPIS.forEach(kpi => {
             const { group, target } = getLocalFilteredRs(kpi);
-            const dir = (TARGETS[kpi] || {dir: 1}).dir;
+            const dir = getIndicatorDirection(kpi);
             
             // Percentile is calculated against the locally filtered dataset reflecting active Region and Type
-            const stat = getPercentile(group, sch, dir, kpi, latestYear);
+            const stat = getPercentile(group, sch, kpi, latestYear);
             
             const groupAvg = getAvgValue(group);
             let badgeClass = stat.topPct <= 10 ? 'badge-green' : stat.topPct <= 30 ? 'badge-blue' : stat.topPct <= 60 ? 'badge-amber' : 'badge-red';
@@ -431,9 +443,9 @@ function renderPerformance(sch, cmp, reg, typ) {
 
     try {
         allIndicators.forEach((kpi, idx) => {
-            const dir = (TARGETS[kpi] || {dir: 1}).dir;
+            const dir = getIndicatorDirection(kpi);
             const { group } = getFilteredRs(kpi, latestYear, sch, cmp, reg, typ);
-            const stat = getPercentile(group, sch, dir, kpi, latestYear);
+            const stat = getPercentile(group, sch, kpi, latestYear);
             if(stat.value === null) return;
 
             let kpiName = kpi.replace(/^\[\d+\.\d+\]\s*/, '');
@@ -458,7 +470,7 @@ function renderPerformance(sch, cmp, reg, typ) {
             radarLabels.push(kpiName);
             radarSchData.push(stat.score);
             cmp.forEach((cName, cIdx) => {
-                const cStat = getPercentile(group, cName, dir, kpi, latestYear);
+                const cStat = getPercentile(group, cName, kpi, latestYear);
                 radarCmpDatasets[cIdx].data.push(cStat.value !== null ? cStat.score : 0);
                 radarCmpDatasets[cIdx].borderColor = cmpColors[cIdx % cmpColors.length];
             });
@@ -519,7 +531,7 @@ function renderPerformance(sch, cmp, reg, typ) {
             datasets.push({ 
                 label: sch, 
                 data: finKpis.map(k => {
-                    const val = getPercentile(getLocalFilteredRs(k).group, sch, (TARGETS[k]||{dir:1}).dir, k, latestYear).value;
+                    const val = getPercentile(getLocalFilteredRs(k).group, sch, k, latestYear).value;
                     return (val != null && !isNaN(val)) ? val : 0;
                 }), 
                 backgroundColor: '#1d4ed8' 
@@ -530,7 +542,7 @@ function renderPerformance(sch, cmp, reg, typ) {
                 datasets.push({ 
                     label: cName, 
                     data: finKpis.map(k => {
-                        const val = getPercentile(getLocalFilteredRs(k).group, cName, (TARGETS[k]||{dir:1}).dir, k, latestYear).value;
+                        const val = getPercentile(getLocalFilteredRs(k).group, cName, k, latestYear).value;
                         return (val != null && !isNaN(val)) ? val : 0;
                     }), 
                     backgroundColor: cmpColors[cIdx % cmpColors.length] 
@@ -710,7 +722,7 @@ function renderPerformance(sch, cmp, reg, typ) {
             datasets.push({ 
                 label: sch, 
                 data: [r1, r2].map(k => {
-                    const p = getPercentile(getLocalFilteredRs(k).group, sch, 1, k, latestYear);
+                    const p = getPercentile(getLocalFilteredRs(k).group, sch, k, latestYear);
                     return (p.value != null && !isNaN(p.value)) ? p.value : 0;
                 }),
                 backgroundColor: '#1d4ed8' 
@@ -721,7 +733,7 @@ function renderPerformance(sch, cmp, reg, typ) {
                 datasets.push({ 
                     label: cName, 
                     data: [r1, r2].map(k => {
-                        const p = getPercentile(getLocalFilteredRs(k).group, cName, 1, k, latestYear);
+                        const p = getPercentile(getLocalFilteredRs(k).group, cName, k, latestYear);
                         return (p.value != null && !isNaN(p.value)) ? p.value : 0;
                     }),
                     backgroundColor: cmpColors[cIdx % cmpColors.length] 
@@ -774,9 +786,15 @@ function renderBenchmarking(sch, cmp, ind) {
     let typAvg = getAvgValue(appData.records.filter(r => r['연도'] === latestYear && r['지표명'] === ind && r['설립구분'] === schType));
     let filterGrpAvg = getAvgValue(group);
 
-    const labels = [sch];
-    const data = [target ? target['값'] || 0 : 0];
-    const bgColors = ['#1d4ed8'];
+    const labels = [];
+    const data = [];
+    const bgColors = [];
+
+    if (sch !== 'all' && target) {
+        labels.push(sch);
+        data.push(target['값'] || 0);
+        bgColors.push('#1d4ed8');
+    }
 
     compares.forEach((cRec, cIdx) => {
         labels.push(cRec['학교명']);
@@ -888,7 +906,10 @@ function renderRanking(sch, cmp, ind, regFilter, typFilter) {
 
     // Initial idx assignment before sorting to maintain absolute rank? 
     // Usually rank is based on the value in the filtered list
-    rs.sort((a,b) => b['값'] - a['값']);
+    const dir = getIndicatorDirection(ind);
+    if (dir === 1) rs.sort((a,b) => b['값'] - a['값']); // Higher is better -> rank 1 is highest
+    else rs.sort((a,b) => a['값'] - b['값']); // Lower is better -> rank 1 is lowest
+
     rs.forEach((r, i) => r._rank = i + 1);
 
     // Apply selected sort
@@ -965,7 +986,7 @@ function renderEvaluation(sch) {
 
         const avgVal = getAvgValue(rs);
         const goal = TARGETS[ind].target;
-        const dir = TARGETS[ind].dir;
+        const dir = getIndicatorDirection(ind);
 
         const meta = appData.indicator_metadata.find(m => m['지표명'] === ind);
         const unit = meta && meta['단위'] !== 'NaN' ? meta['단위'] : '';
@@ -1042,7 +1063,7 @@ function renderRivalry(sch, cmp) {
         const kpiName = kpi.replace(/\[\d+\.\d+\]\s*/, '');
         const meta = appData.indicator_metadata.find(m => m['지표명'] === kpi);
         const unit = meta && meta['단위'] !== 'NaN' ? meta['단위'] : '';
-        const dir = (TARGETS[kpi] || {dir: 1}).dir;
+        const dir = getIndicatorDirection(kpi);
 
         const aWins = dir === 1 ? vA > vB : vA < vB;
         const bWins = dir === 1 ? vB > vA : vB < vA;
@@ -1194,7 +1215,7 @@ function renderRadar(sch, cmp) {
     allSchools.forEach((sName, sIdx) => {
         const isTarget = (sName === sch);
         const color = isTarget ? '#1d4ed8' : cmpColors[(sIdx) % cmpColors.length];
-        const dirLookup = (k) => (TARGETS[k] || {dir: 1}).dir;
+        const dirLookup = (k) => getIndicatorDirection(k);
 
         const data = [];
         const rawValues = [];
@@ -1204,7 +1225,7 @@ function renderRadar(sch, cmp) {
             const rTyp = document.getElementById('type-select').value;
             const groupRs = getFilteredRs(k, latestYear, sName, [], rReg, rTyp).group;
             
-            const p = getPercentile(groupRs, sName, dirLookup(k), k, latestYear);
+            const p = getPercentile(groupRs, sName, k, latestYear);
             data.push(p.score || 0);
             
             // Get raw value and unit
