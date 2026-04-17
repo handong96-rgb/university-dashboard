@@ -7,6 +7,8 @@ const CORE_9_KPIS = [
     '[1.3] 세입 중 등록금 비율', '[4.6] 재학생 1인당 연간 자료구입비(결산)', '[3.4] 전임교원 1인당 교외연구비'
 ];
 
+const cmpColors = ['#ff7b72', '#a371f7', '#3fb950', '#58a6ff', '#f2cc60', '#db2777', '#0891b2', '#79c0ff'];
+
 const TARGETS = {
     '[1.3] 교육비 환원율': { target: 110, dir: 1 },
     '[1.3] 법인 재정규모 대비 법인전입금 비율(사립대)': { target: 10, dir: 1 },
@@ -116,6 +118,21 @@ function setupFilters() {
     if(appData.filters.indicators.includes('[4.1] 장학금 비율')) scxSel.value = '[4.1] 장학금 비율';
 
     [yearSel, schSel, cmpSel, indSel, scxSel, scySel, regSel, typSel].forEach(el => el.addEventListener('change', updateDashboard));
+
+    // Improved Multi-select behavior: Toggle on click without Ctrl
+    cmpSel.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        const option = e.target;
+        if (option.tagName === 'OPTION') {
+            const oldValue = option.selected;
+            option.selected = !oldValue;
+            
+            // Trigger change event manually since we prevented default
+            const event = new Event('change', { bubbles: true });
+            cmpSel.dispatchEvent(event);
+            updateDashboard();
+        }
+    });
 }
 
 function getAvgValue(rs) {
@@ -261,7 +278,6 @@ function renderPerformance(sch, cmp, reg, typ) {
     const allIndicators = appData.filters.indicators.filter(i => /^\[\d+\.\d+\]/.test(i));
     
     let radarLabels = [], radarSchData = [], radarCmpDatasets = cmp.map(c => ({ label: c, data: [], borderColor: '', borderDash: [4,2], fill: false }));
-    const cmpColors = ['#ff7b72', '#a371f7', '#3fb950', '#58a6ff'];
 
     allIndicators.forEach((kpi, idx) => {
         const dir = (TARGETS[kpi] || {dir: 1}).dir;
@@ -563,7 +579,6 @@ function renderScatter(sch, cmp, regFilter, typFilter) {
         }
     });
 
-    const cmpColors = ['#ff7b72', '#a371f7', '#3fb950', '#58a6ff'];
     const bgColors = scatterData.map(d => {
         if(d.school === sch) return '#f2cc60';
         const cIdx = cmp.indexOf(d.school);
