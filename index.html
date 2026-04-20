@@ -23,6 +23,7 @@
                 <li class="nav-item" data-target="page-ranking">4. 지표별 순위 현황</li>
                 <li class="nav-item" data-target="page-evaluation">5. 정량지표 평가결과</li>
                 <li class="nav-item" data-target="page-rivalry">6. UNIVERSITY RIVALRY</li>
+                <li class="nav-item" data-target="page-our-university">7. 우리대학 대시보드</li>
             </ul>
         </nav>
 
@@ -31,24 +32,38 @@
             <aside class="sidebar-filters">
                 <h3>필터 옵션</h3>
                 <div class="filter-group">
+                    <label>기준 대학 (Target)</label>
+                    <select id="school-select" class="glass-input"></select>
+                </div>
+                <div class="filter-group">
                     <label>분석 연도 (Year)</label>
                     <select id="year-select" class="glass-input"></select>
                 </div>
                 <div class="filter-group">
-                    <label>지역 (Region)</label>
-                    <select id="region-select" class="glass-input">
-                        <option value="all">전체 지역</option>
+                    <label>권역 (Region Group)</label>
+                    <select id="region-group-select" class="glass-input">
+                        <option value="all">전체 권역</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>세부 지역 (Region)</label>
+                    <div id="region-checkbox-list" class="filter-checkbox-list">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+                <div class="filter-group">
+                    <label>대학 규모 (Scale)</label>
+                    <select id="scale-select" class="glass-input">
+                        <option value="all">전체 대학규모</option>
                     </select>
                 </div>
                 <div class="filter-group">
                     <label>설립구분 (Type)</label>
                     <select id="type-select" class="glass-input">
                         <option value="all">전체 설립구분</option>
+                        <option value="사립">사립</option>
+                        <option value="국공립">국공립</option>
                     </select>
-                </div>
-                <div class="filter-group">
-                    <label>기준 대학 (Target)</label>
-                    <select id="school-select" class="glass-input"></select>
                 </div>
                 <div class="filter-group">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -251,9 +266,122 @@
                     </div>
                 </div>
 
+                <!-- Page 7: Our University Dashboard -->
+                <div id="page-our-university" class="page-container">
+                    <div class="dashboard-header">
+                        <div class="header-left">
+                            <span class="univ-logo-placeholder">🏫</span>
+                            <div class="header-titles">
+                                <h2 id="dash-school-name">대학명</h2>
+                                <p id="dash-indicator-name">지표명</p>
+                            </div>
+                        </div>
+                        <div class="year-tabs" id="dash-year-tabs">
+                            <!-- Dynamic tabs for 2023, 2024, 2025 -->
+                        </div>
+                        <div class="header-right">
+                            <div class="indicator-tag">지표명 | <span class="active-ind-name">지표</span></div>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-grid">
+                        <!-- Row 1: Top Metrics -->
+                        <div class="dash-card kpi-summary-card">
+                            <div class="card-header">핵심 성과 요약</div>
+                            <div class="kpi-main-val">
+                                <span id="dash-main-value">0.0</span>
+                                <span class="unit" id="dash-main-unit">%</span>
+                            </div>
+                            <div class="change-rate-box">
+                                <span class="rate-label">변화율</span>
+                                <div class="change-chart-container">
+                                    <canvas id="dash-change-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="dash-card stats-card">
+                            <div class="stat-mini-box">
+                                <span class="label">T-점수</span>
+                                <span class="value" id="dash-t-score">0.00</span>
+                            </div>
+                            <div class="stat-mini-box secondary">
+                                <span class="label">백분위</span>
+                                <span class="value" id="dash-percentile">0.00%</span>
+                            </div>
+                        </div>
+
+                        <div class="dash-card trend-card">
+                            <div class="card-header">연도별 추이 분석</div>
+                            <div class="chart-container">
+                                <canvas id="dash-trend-chart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Row 2: Group Comparisons -->
+                        <div class="dash-card comparison-card group-region">
+                            <div class="card-header">권역별 평균 비교</div>
+                            <div class="chart-container">
+                                <canvas id="dash-region-chart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="dash-card comparison-card group-scale">
+                            <div class="card-header">규모별 평균 비교</div>
+                            <div class="chart-container">
+                                <canvas id="dash-scale-chart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="dash-card comparison-card benchmark-list">
+                            <div class="card-header">벤치마킹 분석</div>
+                            <div class="chart-container">
+                                <canvas id="dash-benchmark-dots-chart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Row 3: Ranking & Stats -->
+                        <div class="dash-card rank-trend-card">
+                            <div class="card-header">연도별 순위 변화</div>
+                            <div class="chart-container">
+                                <canvas id="dash-rank-trend-chart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="dash-card ranking-table-card">
+                            <div class="card-header">지표별 대학 순위 현황</div>
+                            <div class="dash-table-wrapper">
+                                <table class="dash-table" id="dash-ranking-table">
+                                    <thead>
+                                        <tr>
+                                            <th>순위</th>
+                                            <th>학교명</th>
+                                            <th>값</th>
+                                            <th>단위</th>
+                                            <th>백분위</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="dash-card stats-summary-card">
+                            <div class="card-header">통계적 성과 위치</div>
+                            <div class="dist-chart-container">
+                                <canvas id="dash-dist-chart"></canvas>
+                            </div>
+                            <div class="dist-summary-table">
+                                <table id="dash-dist-table">
+                                    <!-- Populated by JS -->
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </main>
         </div>
     </div>
-    <script src="app.js?v=2.2"></script>
+    <script src="app.js?v=2.3"></script>
 </body>
 </html>

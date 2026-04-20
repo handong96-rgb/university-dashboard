@@ -34,6 +34,32 @@ const TARGETS = {
     '[4.6] 재학생 1인당 연간 자료구입비(결산)': { target: 54000, dir: 1 }
 };
 
+const customRegions = ['수도권', '대경강원권', '충청권', '동남권', '호남권제주권'];
+const getCustomRegion = (prov) => {
+    if (!prov) return '';
+    if (prov.includes('서울') || prov.includes('경기') || prov.includes('인천')) return '수도권';
+    if (prov.includes('대구') || prov.includes('경북') || prov.includes('강원')) return '대경강원권';
+    if (prov.includes('대전') || prov.includes('충남') || prov.includes('세종') || prov.includes('충북')) return '충청권';
+    if (prov.includes('울산') || prov.includes('경남') || prov.includes('부산')) return '동남권';
+    if (prov.includes('전남') || prov.includes('전북') || prov.includes('제주')) return '호남권제주권';
+    return '';
+};
+
+const scaleGroups = ['A. 5,000명 미만', 'B. 만명 미만', 'C. 만명 이상'];
+const getScaleGroup = (val) => {
+    if (val < 5000) return 'A. 5,000명 미만';
+    if (val < 10000) return 'B. 만명 미만';
+    return 'C. 만명 이상';
+};
+
+const regionGroupToRegions = {
+    '수도권': ['서울', '경기', '인천'],
+    '대경강원권': ['대구', '경북', '강원'],
+    '충청권': ['대전', '충남', '세종', '충북'],
+    '동남권': ['울산', '경남', '부산'],
+    '호남권제주권': ['전남', '전북', '제주']
+};
+
 window.addEventListener('DOMContentLoaded', async () => {
     try {
         const res = await fetch('dashboard_data.json');
@@ -64,6 +90,9 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 function formatKpiValue(val, indName) {
     if (val == null || isNaN(val)) return '-';
+    if (indName === '순위') return Math.round(val).toString();
+    if (indName === 'T-점수' || indName === '백분위') return Number(val).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
     let dec = 2; // Default
     const meta = appData.indicator_metadata.find(m => m['지표명'] === indName);
     const formatType = meta ? meta['평가표기'] : '2자리';
@@ -101,39 +130,83 @@ function setupFilters() {
     const scySel = document.getElementById('scatter-y');
 
     const yearSel = document.getElementById('year-select');
-    const regSel = document.getElementById('region-select');
+    const grpSel = document.getElementById('region-group-select');
     const typSel = document.getElementById('type-select');
+    const scaleSel = document.getElementById('scale-select');
 
-    
+    // Standard dropdown populations
     appData.filters.years.forEach(y => {
         const o = document.createElement('option'); o.value = y; o.innerText = y + '년'; yearSel.appendChild(o);
     });
     yearSel.value = appData.filters.years[appData.filters.years.length - 1];
-    
-    appData.filters.regions.forEach(reg => {
-        const o = document.createElement('option'); o.value = reg; o.innerText = reg; regSel.appendChild(o);
-    });
 
-    appData.filters.types.forEach(typ => {
-        const o = document.createElement('option'); o.value = typ; o.innerText = typ; typSel.appendChild(o);
-    });
+    typSel.innerHTML = `
+        <option value="all">전체 설립구분</option>
+        <option value="사립">사립</option>
+        <option value="국공립">국공립</option>
+    `;
 
     const optAll = document.createElement('option');
     optAll.value = 'all'; optAll.innerText = '전체 대학 (평균)';
     schSel.appendChild(optAll);
 
     appData.filters.schools.forEach(sch => {
-        const option = () => { const o = document.createElement('option'); o.value = sch; o.innerText = sch; return o; };
-        schSel.appendChild(option());
-        cmpSel.appendChild(option());
+        const o = document.createElement('option'); o.value = sch; o.innerText = sch; 
+        schSel.appendChild(o);
+        const c = document.createElement('option'); c.value = sch; c.innerText = sch;
+        cmpSel.appendChild(c);
     });
 
     appData.filters.indicators.forEach(ind => {
-        const option = () => { const o = document.createElement('option'); o.value = ind; o.innerText = ind; return o; };
-        indSel.appendChild(option());
-        scxSel.appendChild(option());
-        scySel.appendChild(option());
+        const o = () => { const el = document.createElement('option'); el.value = ind; el.innerText = ind; return el; };
+        indSel.appendChild(o());
+        scxSel.appendChild(o());
+        scySel.appendChild(o());
     });
+
+    scaleGroups.forEach(s => {
+        const o = document.createElement('option'); o.value = s; o.innerText = s; scaleSel.appendChild(o);
+    });
+
+    // Hierarchical Populators
+    function populateRegionGroups(targetSch) {
+        grpSel.innerHTML = '<option value="all">전체 권역</option>';
+        let groupsToShow = customRegions;
+        if (targetSch !== 'all') {
+            const schRegion = appData.schoolMetadataMap[targetSch]?.reg;
+            const targetGrp = getCustomRegion(schRegion);
+            if (targetGrp) groupsToShow = [targetGrp];
+        }
+        groupsToShow.forEach(g => {
+            const o = document.createElement('option'); o.value = g; o.innerText = g; grpSel.appendChild(o);
+        });
+    }
+
+    function populateRegionCheckboxes(targetGrp) {
+        const container = document.getElementById('region-checkbox-list');
+        container.innerHTML = '';
+        let regionsToShow = [];
+        if (targetGrp === 'all') {
+            regionsToShow = appData.filters.regions;
+        } else {
+            regionsToShow = regionGroupToRegions[targetGrp] || [];
+        }
+
+        regionsToShow.forEach(r => {
+            const div = document.createElement('label');
+            div.className = 'checkbox-item';
+            div.innerHTML = `<input type="checkbox" value="${r}" checked> <span>${r}</span>`;
+            div.querySelector('input').addEventListener('change', () => {
+                const checked = Array.from(container.querySelectorAll('input:checked')).map(i => i.value);
+                triggerFiltering();
+            });
+            container.appendChild(div);
+        });
+    }
+
+    // Initial Population
+    populateRegionGroups(schSel.value);
+    populateRegionCheckboxes(grpSel.value);
 
     // Defaults
     if(appData.filters.schools.includes('한동대학교')) schSel.value = '한동대학교';
@@ -143,21 +216,34 @@ function setupFilters() {
     }
     if(appData.filters.indicators.includes('[4.1] 장학금 비율')) scxSel.value = '[4.1] 장학금 비율';
 
-    // Initial filtering
-    updateSchoolListsByFilter('all', 'all');
+    function triggerFiltering() {
+        const rVals = Array.from(document.querySelectorAll('#region-checkbox-list input:checked')).map(i => i.value);
+        const tVal = typSel.value;
+        const gVal = grpSel.value;
+        const sVal = scaleSel.value;
+        updateSchoolListsByFilter(rVals, tVal, gVal, sVal);
+        updateDashboard();
+    }
 
     // Consolidated filter event handling
-    [yearSel, schSel, cmpSel, indSel, scxSel, scySel, regSel, typSel].forEach(el => {
+    [yearSel, schSel, cmpSel, indSel, scxSel, scySel, typSel, grpSel, scaleSel].forEach(el => {
         el.addEventListener('change', (e) => {
-            const rVal = document.getElementById('region-select').value;
-            const tVal = document.getElementById('type-select').value;
-            
-            if (e.target.id === 'region-select' || e.target.id === 'type-select') {
-                updateSchoolListsByFilter(rVal, tVal);
+            if (e.target.id === 'school-select') {
+                populateRegionGroups(e.target.value);
+                populateRegionCheckboxes(grpSel.value);
+            } else if (e.target.id === 'region-group-select') {
+                populateRegionCheckboxes(e.target.value);
             }
-            updateDashboard();
+            triggerFiltering();
         });
     });
+
+    // Initial filtering
+    if (schSel.value !== 'all') {
+        populateRegionGroups(schSel.value);
+        populateRegionCheckboxes(grpSel.value);
+    }
+    triggerFiltering();
 
     const rivalryCompareSelect = document.getElementById('rivalry-compare-select');
     if(rivalryCompareSelect) {
@@ -198,10 +284,11 @@ function setupFilters() {
     }
 }
 
-function updateSchoolListsByFilter(reg, typ) {
+function updateSchoolListsByFilter(regions, typ, groupReg, scale) {
     const schSel = document.getElementById('school-select');
     const cmpSel = document.getElementById('compare-select');
     const rivalrySch1 = document.getElementById('rivalry-school-1');
+    const year = getActiveYear();
 
     if (!schSel || !cmpSel) return;
 
@@ -209,31 +296,41 @@ function updateSchoolListsByFilter(reg, typ) {
     const currentSch = schSel.value;
     const currentCmps = Array.from(cmpSel.selectedOptions).map(o => o.value);
 
-    // Filter schools using high-performance cached map
+    // Filter schools using high-performance cached map + scale lookup
+    const scaleIndName = appData.filters.indicators.find(i => i.includes('학부') && i.includes('정원') && i.includes('재학생'));
+    const univSizeRecs = appData.records.filter(r => r['연도'] === year && r['지표명'] === scaleIndName);
+
     const filteredSchools = appData.filters.schools.filter(name => {
         const meta = appData.schoolMetadataMap[name];
         if (!meta) return true; 
-        const regMatch = (reg === 'all' || meta.reg === reg);
-        const typMatch = (typ === 'all' || meta.typ === typ);
-        return regMatch && typMatch;
+
+        // 1. Region (Multiple Checkboxes)
+        const regMatch = (regions.length === 0 || regions.includes(meta.reg));
+        
+        // 2. Type (Simplified Mapping)
+        let typMatch = true;
+        if (typ !== 'all') {
+            const mappedTyp = (meta.typ === '사립') ? '사립' : '국공립';
+            typMatch = (mappedTyp === typ);
+        }
+
+        // 3. Region Group
+        const grpMatch = (groupReg === 'all' || getCustomRegion(meta.reg) === groupReg);
+        
+        // 4. Scale
+        let scaleMatch = true;
+        if (scale !== 'all') {
+            const sizeValue = univSizeRecs.find(r => r['학교명'] === name)?.['값'] || 0;
+            scaleMatch = (getScaleGroup(sizeValue) === scale);
+        }
+
+        return regMatch && typMatch && grpMatch && scaleMatch;
     });
 
-    // Efficiently update Target School
-    const frag1 = document.createDocumentFragment();
-    const optAll = document.createElement('option');
-    optAll.value = 'all'; optAll.innerText = '전체 대학 (평균)';
-    frag1.appendChild(optAll);
-
-    filteredSchools.forEach(s => {
-        const o = document.createElement('option'); o.value = s; o.innerText = s; frag1.appendChild(o);
-    });
-    schSel.innerHTML = '';
-    schSel.appendChild(frag1);
+    // DO NOT rebuild schSel (Target University) - it should always show all schools
+    // Only rebuild Compare list and Rivalry list
     
-    if (filteredSchools.includes(currentSch)) schSel.value = currentSch;
-    else schSel.value = 'all';
-
-    // Efficiently update Compare School
+    // 1. Update Compare School (filtered)
     const frag2 = document.createDocumentFragment();
     filteredSchools.forEach(s => {
         const o = document.createElement('option'); o.value = s; o.innerText = s; frag2.appendChild(o);
@@ -246,7 +343,7 @@ function updateSchoolListsByFilter(reg, typ) {
         if (opt) opt.selected = true;
     });
 
-    // Page 6 Rivalry dropdown
+    // 2. Update Page 6 Rivalry dropdown (filtered)
     if (rivalrySch1) {
         rivalrySch1.innerHTML = '<option value="all">대학 선택</option>';
         filteredSchools.forEach(s => {
@@ -263,6 +360,32 @@ function getAvgValue(rs) {
     if(valid.length === 0) return null;
     let sum = valid.reduce((acc, r) => acc + r['값'], 0);
     return sum / valid.length;
+}
+
+function getStats(rs) {
+    if(!rs || !rs.length) return { mean: 0, stdDev: 0, max: 0, q1: 0, q2: 0, q3: 0 };
+    const vals = rs.filter(r => r['값'] != null).map(r => r['값']).sort((a,b) => a - b);
+    if(vals.length === 0) return { mean: 0, stdDev: 0, max: 0, q1: 0, q2: 0, q3: 0 };
+    
+    const mean = vals.reduce((a,b) => a+b, 0) / vals.length;
+    const variance = vals.reduce((a,b) => a + Math.pow(b - mean, 2), 0) / vals.length;
+    const stdDev = Math.sqrt(variance);
+    
+    const max = vals[vals.length - 1];
+    const q1 = vals[Math.floor(vals.length * 0.25)];
+    const q2 = vals[Math.floor(vals.length * 0.5)];
+    const q3 = vals[Math.floor(vals.length * 0.75)];
+    
+    return { mean, stdDev, max, q1, q2, q3 };
+}
+
+function getTScore(val, stats, direction) {
+    if(!val || !stats || stats.stdDev === 0) return 50;
+    // Standard T-Score formula: 10 * (z-score) + 50
+    // If direction is -1 (lower is better), we flip the z-score
+    let z = (val - stats.mean) / stats.stdDev;
+    if(direction === -1) z = (stats.mean - val) / stats.stdDev;
+    return 10 * z + 50;
 }
 
 function getIndicatorDirection(indName) {
@@ -326,7 +449,8 @@ function updateDashboard() {
     const sch = document.getElementById('school-select').value;
     const cmp = Array.from(document.getElementById('compare-select').selectedOptions).map(o => o.value);
     const ind = document.getElementById('indicator-select').value;
-    const reg = document.getElementById('region-select').value;
+    const regChecked = Array.from(document.querySelectorAll('#region-checkbox-list input:checked')).map(i => i.value);
+    const reg = regChecked.length > 0 ? regChecked : 'all';
     const typ = document.getElementById('type-select').value;
 
     document.querySelectorAll('.dynamic-indicator-name').forEach(el => el.innerText = ind);
@@ -348,12 +472,20 @@ function updateDashboard() {
     if(activePageId === 'page-ranking') renderRanking(sch, cmp, ind, reg, typ);
     if(activePageId === 'page-evaluation') renderEvaluation(sch);
     if(activePageId === 'page-rivalry') renderRivalry(sch, cmp);
+    if(activePageId === 'page-our-university') renderOurUniversity(sch, ind);
 }
 
 function getGroupLabel(reg, typ) {
-    if (reg === 'all' && typ === 'all') return "전국 평균";
+    if ((reg === 'all' || (Array.isArray(reg) && reg.length === appData.filters.regions.length)) && typ === 'all') return "전국 평균";
     const parts = [];
-    if (reg !== 'all') parts.push(reg);
+    if (reg !== 'all') {
+        if (Array.isArray(reg)) {
+            if (reg.length < 4) parts.push(reg.join('·'));
+            else parts.push('선택지역');
+        } else {
+            parts.push(reg);
+        }
+    }
     if (typ !== 'all') parts.push(typ);
     return parts.join('·') + " 평균";
 }
@@ -361,8 +493,23 @@ function getGroupLabel(reg, typ) {
 function getFilteredRs(ind, year, sch, cmp, reg, typ) {
     let allYearRecs = appData.records.filter(r => r['연도'] === year && r['지표명'] === ind);
     let groupRs = allYearRecs;
-    if(reg !== 'all') groupRs = groupRs.filter(r => r['지역'] === reg);
-    if(typ !== 'all') groupRs = groupRs.filter(r => r['설립구분'] === typ);
+
+    // 1. Region Filter (Array support)
+    if (reg !== 'all') {
+        if (Array.isArray(reg)) {
+            groupRs = groupRs.filter(r => reg.includes(r['지역']));
+        } else {
+            groupRs = groupRs.filter(r => r['지역'] === reg);
+        }
+    }
+
+    // 2. Type Filter (Simplified Mapping)
+    if (typ !== 'all') {
+        groupRs = groupRs.filter(r => {
+            const mapped = (r['설립구분'] === '사립') ? '사립' : '국공립';
+            return (mapped === typ);
+        });
+    }
     
     return {
         group: groupRs,
@@ -565,7 +712,7 @@ function renderPerformance(sch, cmp, reg, typ) {
                     responsive: true, maintainAspectRatio: false, 
                     plugins: { 
                         legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } },
-                        datalabels: { anchor: 'end', align: 'top', font: { size: 9, weight: 'bold' }, formatter: (v) => v !== null ? v.toFixed(1) + '%' : '-' }
+                        datalabels: { anchor: 'end', align: 'top', font: { size: 9, weight: 'bold' }, formatter: (v) => formatKpiValue(v, k) }
                     },
                     scales: { y: { beginAtZero: true, max: 100 } }
                 }
@@ -601,7 +748,7 @@ function renderPerformance(sch, cmp, reg, typ) {
                     responsive: true, maintainAspectRatio: false, 
                     plugins: { 
                         legend: { display: false },
-                        datalabels: { anchor: 'end', align: 'top', font: { size: 9, weight: 'bold' }, formatter: (v) => v !== null ? v.toFixed(1) + '%' : '-' }
+                        datalabels: { anchor: 'end', align: 'top', font: { size: 9, weight: 'bold' }, formatter: (v) => formatKpiValue(v, dormKpi) }
                     },
                     scales: { y: { beginAtZero: true } }
                 }
@@ -637,7 +784,7 @@ function renderPerformance(sch, cmp, reg, typ) {
                     responsive: true, maintainAspectRatio: false, 
                     plugins: { 
                         legend: { display: false },
-                        datalabels: { anchor: 'end', align: 'top', font: { size: 9, weight: 'bold' }, formatter: (v) => v !== null ? v.toFixed(1) : '-' }
+                        datalabels: { anchor: 'end', align: 'top', font: { size: 9, weight: 'bold' }, formatter: (v) => formatKpiValue(v, enrollKpi) }
                     },
                     scales: { y: { beginAtZero: true } }
                 }
@@ -701,7 +848,7 @@ function renderPerformance(sch, cmp, reg, typ) {
                                 datalabels: {
                                     display: (context) => context.datasetIndex === 0, // Only for Target
                                     align: 'top', anchor: 'end', font: { size: 9, weight: 'bold' },
-                                    formatter: (v) => v !== null ? v.toLocaleString() : ''
+                                    formatter: (v) => formatKpiValue(v, kpi)
                                 }
                             },
                             scales: { x: { ticks: { font: { size: 10 } } }, y: { beginAtZero: false, ticks: { font: { size: 10 } } } }
@@ -757,7 +904,13 @@ function renderPerformance(sch, cmp, reg, typ) {
                     responsive: true, maintainAspectRatio: false, 
                     plugins: { 
                         legend: { display: true, position: 'bottom' },
-                        datalabels: { anchor: 'end', align: 'top', font: { size: 9, weight: 'bold' }, formatter: (v) => v !== null ? v.toLocaleString() : '-' }
+                        datalabels: { 
+                            anchor: 'end', align: 'top', font: { size: 9, weight: 'bold' }, 
+                            formatter: (v, context) => {
+                                const ind = (context.dataIndex === 0) ? r1 : r2;
+                                return formatKpiValue(v, ind);
+                            } 
+                        }
                     } 
                 }
             });
@@ -1270,7 +1423,7 @@ function renderRadar(sch, cmp) {
                 datalabels: {
                     display: true,
                     anchor: 'end', align: 'top', font: { size: 10, weight: 'bold' },
-                    formatter: (v) => v !== null && v !== undefined ? Number(v).toFixed(2) : ''
+                    formatter: (v) => v !== null && v !== undefined ? Number(v).toFixed(1) : ''
                 }
             },
             scales: {
@@ -1284,5 +1437,397 @@ function renderRadar(sch, cmp) {
             }
         }
     });
+}
+
+// -------------------
+// PAGE 7: OUR UNIVERSITY DASHBOARD
+// -------------------
+function renderOurUniversity(sch, ind) {
+    if (sch === 'all') sch = appData.filters.schools[0];
+    const year = getActiveYear();
+    const direction = getIndicatorDirection(ind);
+    const meta = appData.indicator_metadata.find(m => m['지표명'] === ind);
+    const unit = meta && meta['단위'] !== 'NaN' ? meta['단위'] : '';
+
+    // Update basic text
+    document.getElementById('dash-school-name').textContent = sch;
+    document.getElementById('dash-indicator-name').textContent = ind;
+    document.querySelectorAll('.active-ind-name').forEach(el => el.textContent = ind.replace(/\[\d+\.\d+\]\s*/, ''));
+
+    // Populate Year Tabs if empty
+    const tabContainer = document.getElementById('dash-year-tabs');
+    if (tabContainer.children.length === 0) {
+        appData.filters.years.slice(-3).forEach(y => {
+            const tab = document.createElement('div');
+            tab.className = 'year-tab' + (y === year ? ' active' : '');
+            tab.textContent = y + '년';
+            tab.onclick = () => {
+                document.getElementById('year-select').value = y;
+                updateDashboard();
+            };
+            tabContainer.appendChild(tab);
+        });
+    } else {
+        Array.from(tabContainer.children).forEach(tab => {
+            tab.classList.toggle('active', tab.textContent.includes(year));
+        });
+    }
+
+    // Clear old charts
+    ['dashChange', 'dashTrend', 'dashRegion', 'dashScale', 'dashBenchmarkDots', 'dashRankTrend', 'dashDist'].forEach(key => {
+        if (charts[key]) charts[key].destroy();
+    });
+
+    // 1. Calculations & Data Extraction
+    const allYears = appData.filters.years.slice(-3);
+    const checkedRegions = Array.from(document.querySelectorAll('#region-checkbox-list input:checked')).map(i => i.value);
+    const typFilter = document.getElementById('type-select').value;
+    const grpFilter = document.getElementById('region-group-select').value;
+    const scaleFilter = document.getElementById('scale-select').value;
+
+    const scaleIndName = appData.filters.indicators.find(i => i.includes('학부') && i.includes('정원') && i.includes('재학생'));
+    const univSizeRecs = appData.records.filter(r => r['연도'] === year && r['지표명'] === scaleIndName);
+
+    const getFilteredRecords = (recs) => {
+        return recs.filter(r => {
+            const meta = appData.schoolMetadataMap[r['학교명']];
+            
+            // 1. Region (Multiple Checkbox)
+            const matchesReg = (checkedRegions.length === 0) || (checkedRegions.includes(r['지역']));
+            
+            // 2. Type (Simplified Mapping)
+            let matchesTyp = true;
+            if (typFilter !== 'all') {
+                const mappedTyp = (r['설립구분'] === '사립') ? '사립' : '국공립';
+                matchesTyp = (mappedTyp === typFilter);
+            }
+
+            // 3. Region Group
+            const matchesGrp = (grpFilter === 'all') || (getCustomRegion(r['지역']) === grpFilter);
+            
+            // 4. Scale
+            let matchesScale = true;
+            if (scaleFilter !== 'all') {
+                const sizeValue = univSizeRecs.find(sizeR => sizeR['학교명'] === r['학교명'])?.['값'] || 0;
+                matchesScale = (getScaleGroup(sizeValue) === scaleFilter);
+            }
+
+            return matchesReg && matchesTyp && matchesGrp && matchesScale;
+        });
+    };
+
+    const yearBaseRecords = appData.records.filter(r => r['연도'] === year && r['지표명'] === ind);
+    const yearRecords = getFilteredRecords(yearBaseRecords);
+    
+    const stats = getStats(yearRecords);
+    const targetRec = yearRecords.find(r => r['학교명'] === sch);
+    const val = targetRec ? targetRec['값'] : null;
+
+    // T-Score & Percentile (based on filtered population)
+    const pData = getPercentile(yearRecords, sch, ind, year);
+    const tScore = getTScore(val, stats, direction);
+
+    document.getElementById('dash-main-value').textContent = formatKpiValue(val, ind);
+    document.getElementById('dash-main-unit').textContent = unit;
+    document.getElementById('dash-t-score').textContent = formatKpiValue(tScore, 'T-점수');
+    document.getElementById('dash-percentile').textContent = (100 - pData.topPct).toFixed(2) + '%';
+
+
+    // 2. Row 1: KPI Change Chart
+    const prevYear = allYears[allYears.length - 2];
+    const currYear = allYears[allYears.length - 1];
+    const recsPrev = appData.records.filter(r => r['학교명'] === sch && r['지표명'] === ind && r['연도'] === prevYear);
+    const recsCurr = appData.records.filter(r => r['학교명'] === sch && r['지표명'] === ind && r['연도'] === currYear);
+    const valPrev = recsPrev.length ? recsPrev[0]['값'] : 0;
+    const valCurr = recsCurr.length ? recsCurr[0]['값'] : 0;
+    const changeRate = valPrev !== 0 ? ((valCurr / valPrev) - 1) * 100 : 0;
+
+    charts.dashChange = new Chart(document.getElementById('dash-change-chart'), {
+        type: 'bar',
+        data: {
+            labels: ['변화율'],
+            datasets: [{
+                data: [changeRate],
+                backgroundColor: changeRate >= 0 ? '#005a9c' : '#ff7b72',
+                borderRadius: 4,
+                barThickness: 30
+            }]
+        },
+        options: {
+            indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+            plugins: { 
+                legend: { display: false }, 
+                datalabels: { 
+                    display: true, color: '#000', font: { weight: 'bold' }, anchor: changeRate >= 0 ? 'end' : 'start', align: changeRate >= 0 ? 'right' : 'left',
+                    formatter: (v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%`
+                } 
+            },
+            scales: { 
+                x: { 
+                    grid: { color: '#eee' }, 
+                    ticks: { font: { size: 10 } },
+                    // suggestedMin: -Math.max(10, Math.abs(changeRate)*1.5),
+                    // suggestedMax: Math.max(10, Math.abs(changeRate)*1.5)
+                    min: changeRate >= 0 ? -10 : Math.min(-10, changeRate * 1.2),
+                    max: changeRate >= 0 ? Math.max(10, changeRate * 1.2) : 10
+                }, 
+                y: { display: false } 
+            }
+        }
+    });
+
+    // Trend Chart
+    const trendData = allYears.map(y => {
+        const yrBaseRecs = appData.records.filter(r => r['연도'] === y && r['지표명'] === ind);
+        const yrRecs = getFilteredRecords(yrBaseRecs);
+        const yrStats = getStats(yrRecs);
+        const schRec = yrRecs.find(r => r['학교명'] === sch);
+        return { year: y, univ: schRec ? schRec['값'] : null, avg: yrStats.mean };
+    });
+
+    charts.dashTrend = new Chart(document.getElementById('dash-trend-chart'), {
+        type: 'line',
+        data: {
+            labels: trendData.map(d => d.year + '년'),
+            datasets: [
+                { label: '우리대학교값', data: trendData.map(d => d.univ), borderColor: '#f97316', backgroundColor: '#f97316', tension: 0.3, pointRadius: 5 },
+                { label: '대학평균', data: trendData.map(d => d.avg), borderColor: '#0891b2', borderDash: [5, 5], tension: 0.3, pointRadius: 0 }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { 
+                legend: { position: 'top', align: 'end', labels: { boxWidth: 10, font: { size: 10 } } },
+                datalabels: {
+                    display: true, align: 'top', font: { size: 10, weight: 'bold' },
+                    formatter: (v) => formatKpiValue(v, ind)
+                }
+            },
+            scales: { y: { beginAtZero: false, grid: { borderDash: [2, 2] } } }
+        }
+    });
+
+    // 3. Row 2: Comparisons
+    // Region
+    const customRegions = ['수도권', '대경강원권', '충청권', '동남권', '호남권제주권'];
+    const getCustomRegion = (prov) => {
+        if (!prov) return '';
+        if (prov.includes('서울') || prov.includes('경기') || prov.includes('인천')) return '수도권';
+        if (prov.includes('대구') || prov.includes('경북') || prov.includes('강원')) return '대경강원권';
+        if (prov.includes('대전') || prov.includes('충남') || prov.includes('세종') || prov.includes('충북')) return '충청권';
+        if (prov.includes('울산') || prov.includes('경남') || prov.includes('부산')) return '동남권';
+        if (prov.includes('전남') || prov.includes('전북') || prov.includes('제주')) return '호남권제주권';
+        return '';
+    };
+
+    const targetCustomRegion = getCustomRegion(appData.schoolMetadataMap[sch]?.reg);
+
+    const regionData = customRegions.map(cr => {
+        const regRs = yearRecords.filter(r => getCustomRegion(r['지역']) === cr);
+        return getAvgValue(regRs);
+    });
+
+    charts.dashRegion = new Chart(document.getElementById('dash-region-chart'), {
+        type: 'bar',
+        data: {
+            labels: customRegions,
+            datasets: [{
+                data: regionData,
+                backgroundColor: customRegions.map(r => (targetCustomRegion === r ? '#f97316' : '#94a3b8')),
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            indexAxis: 'y',
+            plugins: { 
+                legend: { display: false }, 
+                datalabels: { 
+                    display: true, anchor: 'end', align: 'right', font: { size: 9 },
+                    formatter: (v) => formatKpiValue(v, ind)
+                } 
+            },
+            scales: { x: { display: false }, y: { grid: { display: false }, ticks: { font: { size: 10 } } } }
+        }
+    });
+
+    // Scale (Size) Comparison
+    const targetSize = univSizeRecs.find(r => r['학교명'] === sch)?.['값'] || 0;
+    const targetGroup = getScaleGroup(targetSize);
+
+    const scaleAvgData = scaleGroups.map(grp => {
+        const schoolsInGrp = univSizeRecs.filter(r => getScaleGroup(r['값']) === grp).map(r => r['학교명']);
+        const grpRs = yearRecords.filter(r => schoolsInGrp.includes(r['학교명']));
+        return getAvgValue(grpRs);
+    });
+
+    charts.dashScale = new Chart(document.getElementById('dash-scale-chart'), {
+        type: 'bar',
+        data: {
+            labels: scaleGroups,
+            datasets: [{
+                data: scaleAvgData,
+                backgroundColor: scaleGroups.map(g => (g === targetGroup ? '#003366' : '#94a3b8')),
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { 
+                legend: { display: false }, 
+                datalabels: { 
+                    display: true, anchor: 'end', align: 'top', font: { size: 9 },
+                    formatter: (v) => formatKpiValue(v, ind)
+                } 
+            },
+            scales: { y: { display: false }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } }
+        }
+    });
+
+    // Benchmark Dots Chart (Ranking Visual)
+    const sortedForDots = [...yearRecords].filter(r => r['값'] != null).sort((a,b) => direction === 1 ? b['값'] - a['값'] : a['값'] - b['값']);
+    const top10ForDots = sortedForDots.slice(0, 10);
+    if (!top10ForDots.find(r => r['학교명'] === sch) && targetRec) {
+        top10ForDots.push(targetRec);
+    }
+    top10ForDots.sort((a,b) => direction === 1 ? b['값'] - a['값'] : a['값'] - b['값']);
+
+    charts.dashBenchmarkDots = new Chart(document.getElementById('dash-benchmark-dots-chart'), {
+        type: 'line',
+        data: {
+            labels: top10ForDots.map(r => r['학교명']),
+            datasets: [{
+                data: top10ForDots.map(r => r['값']),
+                borderColor: '#003366',
+                backgroundColor: top10ForDots.map(r => r['학교명'] === sch ? '#f97316' : '#003366'),
+                showLine: true,
+                pointRadius: 6,
+                pointHoverRadius: 8,
+                tension: 0
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            // indexAxis: 'y' removed to show univ names on X-axis as requested
+            plugins: { 
+                legend: { display: false }, 
+                datalabels: { 
+                    display: true, align: 'top', offset: 5, font: { size: 9, weight: 'bold' },
+                    formatter: (v) => formatKpiValue(v, ind)
+                } 
+            },
+            scales: { x: { grid: { display: false }, ticks: { font: { size: 9 } } }, y: { display: false } }
+        }
+    });
+
+
+    // 4. Row 3: Ranking & Stats
+    // Rank Trend
+    const rankTrend = allYears.map(y => {
+        const yrRecs = appData.records.filter(r => r['연도'] === y && r['지표명'] === ind && r['값'] != null);
+        yrRecs.sort((a,b) => direction === 1 ? b['값'] - a['값'] : a['값'] - b['값']);
+        const rIndex = yrRecs.findIndex(r => r['학교명'] === sch);
+        return { year: y, rank: rIndex >= 0 ? rIndex + 1 : null };
+    });
+
+    charts.dashRankTrend = new Chart(document.getElementById('dash-rank-trend-chart'), {
+        type: 'line',
+        data: {
+            labels: rankTrend.map(d => d.year + '년'),
+            datasets: [{
+                data: rankTrend.map(d => d.rank),
+                borderColor: '#003366',
+                backgroundColor: '#f97316',
+                borderWidth: 3,
+                pointRadius: 5,
+                fill: false
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            scales: { 
+                y: { reverse: true, ticks: { stepSize: 1 }, grid: { borderDash: [2, 2] } } 
+            },
+            plugins: { 
+                legend: { display: false }, 
+                datalabels: { 
+                    display: true, align: 'top', font: { weight: 'bold' },
+                    formatter: (v) => formatKpiValue(v, '순위') // Fixed rank formatting
+                } 
+            }
+        }
+    });
+
+    // Ranking Table
+    const tableBody = document.querySelector('#dash-ranking-table tbody');
+    tableBody.innerHTML = '';
+    // Use all records in filtered population for table
+    sortedForDots.forEach((r, idx) => {
+        const row = document.createElement('tr');
+        if (r['학교명'] === sch) row.style.backgroundColor = '#fff7ed';
+        row.innerHTML = `
+            <td>${idx + 1}</td>
+            <td style="font-weight:700;">${r['학교명']}</td>
+            <td>${formatKpiValue(r['값'], ind)}</td>
+            <td>${unit}</td>
+            <td style="color:#666;">${(100 - ((idx+1)/sortedForDots.length*100)).toFixed(1)}%</td>
+        `;
+        tableBody.appendChild(row);
+
+        // Scroll to target school if it matches
+        if (r['학교명'] === sch) {
+            setTimeout(() => {
+                row.scrollIntoView({ block: 'nearest' });
+            }, 100);
+        }
+    });
+
+    // Distribution Bar
+    charts.dashDist = new Chart(document.getElementById('dash-dist-chart'), {
+        type: 'bar',
+        data: {
+            labels: ['우리대학교값', '상위 25%', '중위수', '상위 75%', '최댓값', '평균'],
+            datasets: [{
+                data: [val, stats.q3, stats.q2, stats.q1, stats.max, stats.mean],
+                backgroundColor: ['#f97316', '#cbd5e1', '#94a3b8', '#64748b', '#003366', '#854d0e'],
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { 
+                legend: { display: false }, 
+                datalabels: { 
+                    display: true, anchor: 'end', align: 'top', font: { size: 9, weight: 'bold' },
+                    formatter: (v) => formatKpiValue(v, ind)
+                } 
+            },
+            scales: { x: { grid: { display: false }, ticks: { font: { size: 10 } } }, y: { display: false } }
+        }
+    });
+
+    const distTable = document.getElementById('dash-dist-table');
+    distTable.innerHTML = `
+        <thead>
+            <tr>
+                <th>우리대학교값</th>
+                <th>상위 75%</th>
+                <th>상위 50%</th>
+                <th>상위 25%</th>
+                <th>최대값</th>
+                <th>평균</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td style="font-weight:800; color:#f97316;">${formatKpiValue(val, ind)}</td>
+                <td>${formatKpiValue(stats.q1, ind)}</td>
+                <td>${formatKpiValue(stats.q2, ind)}</td>
+                <td>${formatKpiValue(stats.q3, ind)}</td>
+                <td>${formatKpiValue(stats.max, ind)}</td>
+                <td>${formatKpiValue(stats.mean, ind)}</td>
+            </tr>
+        </tbody>
+    `;
 }
 

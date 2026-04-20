@@ -168,6 +168,35 @@ body {
     color: var(--text-primary);
 }
 
+.filter-checkbox-list {
+    background: #ffffff;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.5rem;
+    max-height: 120px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.checkbox-item input {
+    cursor: pointer;
+}
+
+.checkbox-item:hover {
+    background: var(--hgu-light);
+}
+
 /* Content Area */
 .content-area {
     flex: 1;
@@ -696,3 +725,259 @@ body {
     border-radius: 10px;
     transition: width 1.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
+
+/* -------------------
+   OUR UNIVERSITY DASHBOARD (PAGE 7)
+   ------------------- */
+#page-our-university {
+    background-color: #ededed;
+    padding: 0;
+}
+
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 2rem;
+    background: #fff;
+    border-bottom: 1px solid #ddd;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.05);
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.univ-logo-placeholder {
+    font-size: 2.5rem;
+    width: 60px;
+    height: 60px;
+    background: #eee;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #ccc;
+}
+
+.header-titles h2 {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #003366;
+    margin-bottom: 2px;
+}
+
+.header-titles p {
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.year-tabs {
+    display: flex;
+    background: #e0e0e0;
+    padding: 3px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+}
+
+.year-tab {
+    padding: 8px 30px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #333;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.2s;
+}
+
+.year-tab:hover {
+    background: #d0d0d0;
+}
+
+.year-tab.active {
+    background: #333;
+    color: #fff;
+}
+
+.indicator-tag {
+    background: #f8f9fa;
+    border: 1px solid #ddd;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #444;
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1.5fr;
+    grid-template-rows: auto auto auto;
+    gap: 15px;
+    padding: 20px;
+}
+
+.dash-card {
+    background: #fff;
+    border-radius: 4px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+}
+
+.dash-card .card-header {
+    font-size: 0.8rem;
+    font-weight: 800;
+    color: #333;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.dash-card .card-header::before {
+    content: '';
+    width: 3px;
+    height: 12px;
+    background: var(--hgu-blue);
+}
+
+.kpi-summary-card {
+    display: flex;
+    flex-direction: column;
+}
+
+.kpi-main-val {
+    text-align: center;
+    font-size: 3.5rem;
+    font-weight: 900;
+    color: #333;
+    padding: 15px 0;
+    letter-spacing: -2px;
+}
+
+.kpi-main-val .unit {
+    font-size: 1.5rem;
+    color: var(--primary);
+    margin-left: 5px;
+}
+
+.change-rate-box {
+    margin-top: auto;
+    border-top: 1px dashed #eee;
+    padding-top: 10px;
+}
+
+.rate-label {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: #666;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.change-chart-container {
+    height: 100px;
+}
+
+.stats-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    gap: 10px;
+}
+
+.stat-mini-box {
+    background: #fafafa;
+    border: 1px solid #eee;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    border-radius: 4px;
+}
+
+.stat-mini-box .label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #555;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+}
+
+.stat-mini-box .value {
+    font-size: 1.8rem;
+    font-weight: 900;
+    color: #333;
+}
+
+.stat-mini-box.secondary {
+    border-top: 3px solid #005a9c;
+}
+
+/* Distribution Table in Bottom Right Card */
+.dist-summary-table {
+    margin-top: 15px;
+}
+
+.dist-summary-table table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.75rem;
+}
+
+.dist-summary-table th, .dist-summary-table td {
+    border: 1px solid #eee;
+    padding: 6px;
+    text-align: center;
+}
+
+.dist-summary-table th {
+    background: #f8f9fa;
+    color: #666;
+    font-weight: 700;
+}
+
+.dash-table-wrapper {
+    flex: 1;
+    overflow-y: auto;
+    max-height: 250px;
+    margin-top: 5px;
+}
+
+.dash-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.75rem;
+}
+
+.dash-table th {
+    background: #f4f4f4;
+    padding: 8px;
+    text-align: left;
+    border-bottom: 2px solid #ddd;
+    color: #555;
+}
+
+.dash-table td {
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+}
+
+.dash-table tr:hover {
+    background: #f9fafb;
+}
+
+.chart-container {
+    position: relative;
+    flex: 1;
+    min-height: 200px;
+}
+
+.dist-chart-container {
+    height: 150px;
+}
+
