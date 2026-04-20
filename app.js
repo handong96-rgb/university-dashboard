@@ -1,5 +1,6 @@
 let appData = null;
 let charts = { massiveTrends: {} };
+let renderTimeout = null;
 Chart.register(ChartDataLabels);
 
 const CORE_9_KPIS = [
@@ -116,7 +117,19 @@ function setupNavigation() {
 
             pages.forEach(p => p.classList.remove('active'));
             document.getElementById(item.dataset.target).classList.add('active');
-            
+
+            // Robust multi-tab chart cleanup
+            Object.keys(charts).forEach(key => {
+                if (key === 'massiveTrends') {
+                    Object.keys(charts.massiveTrends).forEach(tk => charts.massiveTrends[tk]?.destroy());
+                    charts.massiveTrends = {};
+                } else if (charts[key] && typeof charts[key].destroy === 'function') {
+                    charts[key].destroy();
+                    charts[key] = null;
+                }
+            });
+            if (renderTimeout) clearTimeout(renderTimeout);
+
             updateDashboard(); // re-render on tab switch
         });
     });
@@ -452,6 +465,7 @@ function updateDashboard() {
     const regChecked = Array.from(document.querySelectorAll('#region-checkbox-list input:checked')).map(i => i.value);
     const reg = regChecked.length > 0 ? regChecked : 'all';
     const typ = document.getElementById('type-select').value;
+    const scaleSel = document.getElementById('scale-select');
 
     document.querySelectorAll('.dynamic-indicator-name').forEach(el => el.innerText = ind);
     
@@ -468,8 +482,8 @@ function updateDashboard() {
         updateRadarSchoolLegendUI(sch, cmp); // New: School colors
         renderRadar(sch, cmp); 
     }
-    if(activePageId === 'page-scatter') renderScatter(sch, cmp, reg, typ);
-    if(activePageId === 'page-ranking') renderRanking(sch, cmp, ind, reg, typ);
+    if(activePageId === 'page-scatter') renderScatter(sch, cmp, reg, typ, scaleSel.value);
+    if(activePageId === 'page-ranking') renderRanking(sch, cmp, ind, reg, typ, scaleSel.value);
     if(activePageId === 'page-evaluation') renderEvaluation(sch);
     if(activePageId === 'page-rivalry') renderRivalry(sch, cmp);
     if(activePageId === 'page-our-university') renderOurUniversity(sch, ind);
@@ -509,6 +523,25 @@ function getFilteredRs(ind, year, sch, cmp, reg, typ) {
             const mapped = (r['설립구분'] === '사립') ? '사립' : '국공립';
             return (mapped === typ);
         });
+    }
+
+    // 3. Scale Filter (Dynamic lookup using latest available enrollment data)
+    const scale = document.getElementById('scale-select').value;
+    if (scale !== 'all') {
+        const scaleIndName = appData.filters.indicators.find(i => i.includes('학부') && i.includes('정원') && i.includes('재학생'));
+        // Find newest available year for scale data
+        const newestScaleYear = appData.filters.years.slice().reverse().find(y => 
+            appData.records.some(r => r['연도'] === y && r['지표명'] === scaleIndName)
+        );
+        const univSizeRecs = appData.records.filter(r => r['연도'] === newestScaleYear && r['지표명'] === scaleIndName);
+
+        if (univSizeRecs.length > 0) {
+            groupRs = groupRs.filter(r => {
+                const sizeValue = univSizeRecs.find(sr => sr['학교명'] === r['학교명'])?.['값'];
+                if (sizeValue == null) return true; // If size data is missing for this school, keep it (don't over-filter)
+                return getScaleGroup(sizeValue) === scale;
+            });
+        }
     }
     
     return {
@@ -797,6 +830,7 @@ function renderPerformance(sch, cmp, reg, typ) {
     const dynamicPalette = ['#1d4ed8', '#059669', '#d97706', '#9333ea', '#db2777', '#0891b2', '#ea580c', '#4f46e5', '#ca8a04', '#16a34a'];
     
     if(trendsContainer) {
+        if(renderTimeout) clearTimeout(renderTimeout);
         trendsContainer.innerHTML = '';
         allIndicators.forEach((kpi, idx) => {
             let kpiName = kpi.replace(/^\[\d+\.\d+\]\s*/, '');
@@ -810,13 +844,13 @@ function renderPerformance(sch, cmp, reg, typ) {
                 </div>`;
         });
         
-        setTimeout(() => {
-            const displayYears = appData.filters.years.slice(-3);
+        renderTimeout = setTimeout(() => {
             allIndicators.forEach((kpi, idx) => {
                 try {
                     const ctxNode = document.getElementById(`trend-${idx}`);
                     if(!ctxNode) return;
                     const themeColor = dynamicPalette[idx % dynamicPalette.length];
+                    const displayYears = appData.filters.years.slice(-3);
                     
                     const lineDatasets = [{ 
                         label: sch, 
@@ -838,6 +872,7 @@ function renderPerformance(sch, cmp, reg, typ) {
                         borderColor: '#9ca3af', borderDash: [5,4], borderWidth: 1.2, tension: 0.3, pointRadius: 0 
                     });
 
+                    if(charts.massiveTrends[`trend-${idx}`]) charts.massiveTrends[`trend-${idx}`].destroy();
                     charts.massiveTrends[`trend-${idx}`] = new Chart(ctxNode.getContext('2d'), {
                         type: 'line',
                         data: { labels: displayYears, datasets: lineDatasets },
@@ -897,6 +932,7 @@ function renderPerformance(sch, cmp, reg, typ) {
                 backgroundColor: '#9ca3af' 
             });
 
+            if(charts.research) charts.research.destroy();
             charts.research = new Chart(document.getElementById('researchChart').getContext('2d'), {
                 type: 'bar',
                 data: { labels: ['논문 성과', '외부 연구비'], datasets },
@@ -920,15 +956,18 @@ function renderPerformance(sch, cmp, reg, typ) {
 
 // 2. Benchmarking
 function renderBenchmarking(sch, cmp, ind) {
-    const activeReg = document.getElementById('region-select').value;
+    const regChecked = Array.from(document.querySelectorAll('#region-checkbox-list input:checked')).map(i => i.value);
+    const activeReg = regChecked.length > 0 ? regChecked : 'all';
     const activeTyp = document.getElementById('type-select').value;
-
-    const ctx = document.getElementById('benchmark-canvas').getContext('2d');
-    if(charts.benchmarking) charts.benchmarking.destroy();
+    const activeScale = document.getElementById('scale-select').value;
 
     const latestYear = getActiveYear();
     const groupLabel = getGroupLabel(activeReg, activeTyp);
-    const { group, target, compares } = getFilteredRs(ind, latestYear, sch, cmp, activeReg, activeTyp);
+    const { group, target, compares } = getFilteredRs(ind, latestYear, sch, cmp, activeReg, activeTyp, activeScale);
+    
+    const ctx = document.getElementById('benchmark-canvas').getContext('2d');
+    if(charts.benchmarking) charts.benchmarking.destroy();
+    if(charts.benchDots) charts.benchDots.destroy(); // Fix: destroy both benchmarking charts
     
     // Default group-based averages for context
     let schRegion = target ? target['지역'] : '-';
@@ -988,17 +1027,8 @@ function renderScatter(sch, cmp, regFilter, typFilter) {
     const indY = document.getElementById('scatter-y').value;
     const latestYear = getActiveYear();
 
-    let rsX = appData.records.filter(r => r['연도'] === latestYear && r['지표명'] === indX);
-    let rsY = appData.records.filter(r => r['연도'] === latestYear && r['지표명'] === indY);
-
-    if (regFilter !== 'all') {
-        rsX = rsX.filter(r => r['지역'] === regFilter);
-        rsY = rsY.filter(r => r['지역'] === regFilter);
-    }
-    if (typFilter !== 'all') {
-        rsX = rsX.filter(r => r['설립구분'] === typFilter);
-        rsY = rsY.filter(r => r['설립구분'] === typFilter);
-    }
+    let { group: rsX } = getFilteredRs(indX, latestYear, sch, cmp, regFilter, typFilter);
+    let { group: rsY } = getFilteredRs(indY, latestYear, sch, cmp, regFilter, typFilter);
 
     const scatterData = [];
     appData.filters.schools.forEach(s => {
@@ -1050,12 +1080,10 @@ function renderScatter(sch, cmp, regFilter, typFilter) {
 // Global Sort State for Rankings
 let currentSort = { col: '값', dir: 'desc' };
 
-function renderRanking(sch, cmp, ind, regFilter, typFilter) {
+function renderRanking(sch, cmp, ind, regFilter, typFilter, scaleFilter) {
     const latestYear = getActiveYear();
-    let rs = appData.records.filter(r => r['연도'] === latestYear && r['지표명'] === ind && r['값'] != null);
-    
-    if (regFilter !== 'all') rs = rs.filter(r => r['지역'] === regFilter);
-    if (typFilter !== 'all') rs = rs.filter(r => r['설립구분'] === typFilter);
+    let { group: rs } = getFilteredRs(ind, latestYear, sch, cmp, regFilter, typFilter);
+    rs = rs.filter(r => r['값'] != null);
 
     // Initial idx assignment before sorting to maintain absolute rank? 
     // Usually rank is based on the value in the filtered list
@@ -1092,7 +1120,7 @@ function renderRanking(sch, cmp, ind, regFilter, typFilter) {
                 // Update icons
                 thead.querySelectorAll('th').forEach(t => t.classList.remove('sort-asc', 'sort-desc'));
                 th.classList.add(currentSort.dir === 'asc' ? 'sort-asc' : 'sort-desc');
-                renderRanking(sch, cmp, ind, regFilter, typFilter);
+                renderRanking(sch, cmp, ind, regFilter, typFilter, scaleFilter);
             });
         });
     }
@@ -1353,7 +1381,7 @@ function renderRadar(sch, cmp) {
     const ctx = document.getElementById('radar-canvas');
     if(!ctx) return;
     if(charts.radar) charts.radar.destroy();
-
+    
     const latestYear = getActiveYear();
 
     if (selectedRadarIndicators.length < 3) {
@@ -1374,9 +1402,12 @@ function renderRadar(sch, cmp) {
         const rawValues = [];
 
         selectedRadarIndicators.map(k => {
-            const rReg = document.getElementById('region-select').value;
+            const regChecked = Array.from(document.querySelectorAll('#region-checkbox-list input:checked')).map(i => i.value);
+            const rReg = regChecked.length > 0 ? regChecked : 'all';
             const rTyp = document.getElementById('type-select').value;
-            const groupRs = getFilteredRs(k, latestYear, sName, [], rReg, rTyp).group;
+            const rScale = document.getElementById('scale-select').value;
+            
+            const groupRs = getFilteredRs(k, latestYear, sName, [], rReg, rTyp, rScale).group;
             
             const p = getPercentile(groupRs, sName, k, latestYear);
             data.push(p.score || 0);
@@ -1454,7 +1485,6 @@ function renderOurUniversity(sch, ind) {
     document.getElementById('dash-indicator-name').textContent = ind;
     document.querySelectorAll('.active-ind-name').forEach(el => el.textContent = ind.replace(/\[\d+\.\d+\]\s*/, ''));
 
-    // Populate Year Tabs if empty
     const tabContainer = document.getElementById('dash-year-tabs');
     if (tabContainer.children.length === 0) {
         appData.filters.years.slice(-3).forEach(y => {
