@@ -1,8 +1,8 @@
 let appData = null;
 let charts = { massiveTrends: {} };
 let renderTimeout = null;
-window.DASHBOARD_VERSION = "2.22";
-console.error("DASHBOARD VERSION 2.22 LOADED");
+window.DASHBOARD_VERSION = "2.23";
+console.error("DASHBOARD VERSION 2.23 LOADED");
 
 // Global Error Reporter for Debugging
 window.onerror = function(msg, url, lineNo, columnNo, error) {
@@ -1786,19 +1786,18 @@ function renderOurUniversity(sch, ind) {
     charts.dashType = new Chart(document.getElementById('dash-type-chart'), {
         type: 'bar',
         data: {
-            labels: typeGroups,
+            labels: ['', ...typeGroups, ''],
             datasets: [{
-                data: typeAvgData,
-                backgroundColor: typeGroups.map(t => (t === targetType ? '#f97316' : '#475569')),
-                borderRadius: 4,
-                barThickness: 70 // Even thicker bars
+                data: [null, ...typeAvgData, null],
+                backgroundColor: [null, ...typeGroups.map(t => (t === targetType ? '#f97316' : '#475569')), null],
+                borderRadius: 4
             }]
         },
         options: {
             responsive: true, maintainAspectRatio: false,
             layout: { padding: { top: 45 } },
-            categoryPercentage: 0.3, // Brining bars even closer
-            barPercentage: 1.0,
+            categoryPercentage: 1.0, 
+            barPercentage: 0.8,
             plugins: { 
                 legend: { display: false }, 
                 datalabels: { 
