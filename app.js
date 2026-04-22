@@ -745,6 +745,7 @@ function renderPerformance(sch, cmp, reg, typ) {
                 data: { labels: ['등록금 비율', '기부금 비율', '법인전입금 비율'], datasets },
                 options: { 
                     responsive: true, maintainAspectRatio: false, 
+                    layout: { padding: { top: 25 } },
                     plugins: { 
                         legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } },
                         datalabels: { 
@@ -791,6 +792,7 @@ function renderPerformance(sch, cmp, reg, typ) {
                 data: { labels: ['수도권 전체', '비수도권 전체', groupLabel, sch], datasets },
                 options: { 
                     responsive: true, maintainAspectRatio: false, 
+                    layout: { padding: { top: 25 } },
                     plugins: { 
                         legend: { display: false },
                         datalabels: { anchor: 'end', align: 'top', font: { size: 9, weight: 'bold' }, formatter: (v) => formatKpiValue(v, dormKpi) }
@@ -827,6 +829,7 @@ function renderPerformance(sch, cmp, reg, typ) {
                 data: { labels: ['사립 전체', '국공립 전체', groupLabel, sch], datasets },
                 options: { 
                     responsive: true, maintainAspectRatio: false, 
+                    layout: { padding: { top: 25 } },
                     plugins: { 
                         legend: { display: false },
                         datalabels: { anchor: 'end', align: 'top', font: { size: 9, weight: 'bold' }, formatter: (v) => formatKpiValue(v, enrollKpi) }
@@ -950,6 +953,7 @@ function renderPerformance(sch, cmp, reg, typ) {
                 data: { labels: ['논문 성과', '외부 연구비'], datasets },
                 options: { 
                     responsive: true, maintainAspectRatio: false, 
+                    layout: { padding: { top: 25 } },
                     plugins: { 
                         legend: { display: true, position: 'bottom' },
                         datalabels: { 
@@ -1017,7 +1021,7 @@ function renderBenchmarking(sch, cmp, ind) {
         options: {
             indexAxis: 'y', // horizontal bar
             responsive: true, maintainAspectRatio: false,
-            layout: { padding: { right: 60 } }, // Increase right padding to avoid datalabel clipping
+            layout: { padding: { right: 80 } }, // Increase right padding to avoid datalabel clipping
             plugins: { 
                 legend: { display: false },
                 datalabels: {
@@ -1642,6 +1646,7 @@ function renderOurUniversity(sch, ind) {
         },
         options: {
             responsive: true, maintainAspectRatio: false,
+            layout: { padding: { top: 25 } },
             plugins: { 
                 legend: { position: 'top', align: 'end', labels: { boxWidth: 10, font: { size: 10 } } },
                 datalabels: {
@@ -1708,6 +1713,7 @@ function renderOurUniversity(sch, ind) {
         },
         options: {
             responsive: true, maintainAspectRatio: false,
+            layout: { padding: { top: 25 } },
             plugins: { 
                 legend: { display: false }, 
                 datalabels: { 
@@ -1743,7 +1749,7 @@ function renderOurUniversity(sch, ind) {
         },
         options: {
             responsive: true, maintainAspectRatio: false,
-            // indexAxis: 'y' removed to show univ names on X-axis as requested
+            layout: { padding: { top: 35 } },
             plugins: { 
                 legend: { display: false }, 
                 datalabels: { 
@@ -1751,7 +1757,13 @@ function renderOurUniversity(sch, ind) {
                     formatter: (v) => formatKpiValue(v, ind)
                 } 
             },
-            scales: { x: { grid: { display: false }, ticks: { font: { size: 9 } } }, y: { display: false } }
+            scales: { 
+                x: { 
+                    grid: { display: false }, 
+                    ticks: { font: { size: 9 }, maxRotation: 45, minRotation: 45, padding: 8 } 
+                }, 
+                y: { display: false } 
+            }
         }
     });
 
@@ -1798,6 +1810,7 @@ function renderOurUniversity(sch, ind) {
         },
         options: {
             responsive: true, maintainAspectRatio: false,
+            layout: { padding: { top: 25 } },
             scales: { 
                 y: { reverse: true, ticks: { stepSize: 1 }, grid: { borderDash: [2, 2] } } 
             },
@@ -1848,6 +1861,7 @@ function renderOurUniversity(sch, ind) {
         },
         options: {
             responsive: true, maintainAspectRatio: false,
+            layout: { padding: { top: 30 } },
             plugins: { 
                 legend: { display: false }, 
                 datalabels: { 
