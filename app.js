@@ -1,8 +1,8 @@
 let appData = null;
 let charts = { massiveTrends: {} };
 let renderTimeout = null;
-window.DASHBOARD_VERSION = "2.13";
-console.error("DASHBOARD VERSION 2.13 LOADED");
+window.DASHBOARD_VERSION = "2.14";
+console.error("DASHBOARD VERSION 2.14 LOADED");
 Chart.register(ChartDataLabels);
 
 const CORE_9_KPIS = [
@@ -94,7 +94,10 @@ window.addEventListener('DOMContentLoaded', async () => {
 function formatKpiValue(val, indName) {
     if (val == null || isNaN(val)) return '-';
     if (indName === '순위') return Math.round(val).toString();
-    if (indName === 'T-점수' || indName === '백분위') return Number(val).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (indName === 'T-점수' || indName === '백분위') {
+        const rounded = Math.round(Number(val) * 100) / 100;
+        return rounded.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
 
     let dec = 2; // Default
     const meta = appData.indicator_metadata.find(m => m['지표명'] === indName);
