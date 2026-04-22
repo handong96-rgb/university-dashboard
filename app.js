@@ -1,8 +1,8 @@
 let appData = null;
 let charts = { massiveTrends: {} };
 let renderTimeout = null;
-window.DASHBOARD_VERSION = "2.24";
-console.error("DASHBOARD VERSION 2.24 LOADED");
+window.DASHBOARD_VERSION = "2.25";
+console.error("DASHBOARD VERSION 2.25 LOADED");
 
 // Global Error Reporter for Debugging
 window.onerror = function(msg, url, lineNo, columnNo, error) {
@@ -1568,7 +1568,7 @@ function renderOurUniversity(sch, ind) {
     }
 
     // Clear old charts
-    ['dashChange', 'dashTrend', 'dashRegion', 'dashScale', 'dashBenchmarkDots', 'dashRankTrend', 'dashDist'].forEach(key => {
+    ['dashChange', 'dashTrend', 'dashRegion', 'dashScale', 'dashType', 'dashBenchmarkDots', 'dashRankTrend', 'dashDist'].forEach(key => {
         if (charts[key]) charts[key].destroy();
     });
 
