@@ -1,8 +1,8 @@
 let appData = null;
 let charts = { massiveTrends: {} };
 let renderTimeout = null;
-window.DASHBOARD_VERSION = "2.15";
-console.error("DASHBOARD VERSION 2.15 LOADED");
+window.DASHBOARD_VERSION = "2.16";
+console.error("DASHBOARD VERSION 2.16 LOADED");
 Chart.register(ChartDataLabels);
 
 const CORE_9_KPIS = [
