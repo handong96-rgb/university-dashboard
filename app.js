@@ -1,8 +1,27 @@
 let appData = null;
 let charts = { massiveTrends: {} };
 let renderTimeout = null;
-window.DASHBOARD_VERSION = "2.16";
-console.error("DASHBOARD VERSION 2.16 LOADED");
+window.DASHBOARD_VERSION = "2.18";
+console.error("DASHBOARD VERSION 2.18 LOADED");
+
+// Global Error Reporter for Debugging
+window.onerror = function(msg, url, lineNo, columnNo, error) {
+    const errorMsg = `Error: ${msg}\nUrl: ${url}\nLine: ${lineNo}:${columnNo}\nStack: ${error ? error.stack : 'N/A'}`;
+    console.error(errorMsg);
+    const container = document.querySelector('.powerbi-wrapper');
+    if (container) {
+        container.innerHTML = `<div style="padding:2rem; background:#fff; border:4px solid red; color:red; font-family:monospace; white-space:pre-wrap;"><h1>Critical JS Error!</h1>${errorMsg}</div>`;
+    }
+    return false;
+};
+window.onunhandledrejection = function(event) {
+    console.error('Unhandled Rejection:', event.reason);
+    const container = document.querySelector('.powerbi-wrapper');
+    if (container) {
+        container.innerHTML = `<div style="padding:2rem; background:#fff; border:4px solid red; color:red; font-family:monospace; white-space:pre-wrap;"><h1>Unhandled Promise Rejection!</h1>${event.reason}</div>`;
+    }
+};
+
 Chart.register(ChartDataLabels);
 
 const CORE_9_KPIS = [
