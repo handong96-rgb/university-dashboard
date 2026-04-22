@@ -1686,76 +1686,9 @@ function renderOurUniversity(sch, ind) {
         }
     });
 
-    // Scale comparison: use FULL (unfiltered) records for fair group averages
-    const scaleAvgData = scaleGroups.map(grp => {
-        const schoolsInGrp = univSizeRecs.filter(r => getScaleGroup(r['값']) === grp).map(r => r['학교명']);
-        const grpRs = yearBaseRecords.filter(r => schoolsInGrp.includes(r['학교명']));
-        return getAvgValue(grpRs);
-    });
-
-    charts.dashScale = new Chart(document.getElementById('dash-scale-chart'), {
-        type: 'bar',
-        data: {
-            labels: scaleGroups,
-            datasets: [{
-                data: scaleAvgData,
-                backgroundColor: scaleGroups.map(g => (g === getScaleGroup(targetSize) ? '#003366' : '#94a3b8')),
-                borderRadius: 4
-            }]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            layout: { padding: { top: 45 } },
-            plugins: { 
-                legend: { display: false }, 
-                datalabels: { 
-                    display: true, anchor: 'end', align: 'top', font: { size: 9 },
-                    formatter: (v) => formatKpiValue(v, ind)
-                } 
-            },
-            scales: { x: { grid: { display: false }, ticks: { font: { size: 9 } } }, y: { display: false } }
-        }
-    });
-
-    // Establishment Type Comparison
-    const targetType = appData.records.find(r => r['학교명'] === sch && r['설립구분'])?.['설립구분'] === '사립' ? '사립' : '국공립 등';
-    const typeGroups = ['사립', '국공립 등'];
-    const typeAvgData = typeGroups.map(t => {
-        const subset = yearBaseRecords.filter(r => {
-            const isPrivate = r['설립구분'] === '사립';
-            return t === '사립' ? isPrivate : !isPrivate;
-        });
-        return getAvgValue(subset);
-    });
-
-    charts.dashType = new Chart(document.getElementById('dash-type-chart'), {
-        type: 'bar',
-        data: {
-            labels: typeGroups,
-            datasets: [{
-                data: typeAvgData,
-                backgroundColor: typeGroups.map(t => (t === targetType ? '#f97316' : '#475569')),
-                borderRadius: 4,
-                barThickness: 40
-            }]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            layout: { padding: { top: 45 } },
-            plugins: { 
-                legend: { display: false }, 
-                datalabels: { 
-                    display: true, anchor: 'end', align: 'top', font: { size: 9 },
-                    formatter: (v) => formatKpiValue(v, ind)
-                } 
-            },
-            scales: { x: { grid: { display: false }, ticks: { font: { size: 9 } } }, y: { display: false } }
-        }
-    });
-
     const targetCustomRegion = getCustomRegion(appData.schoolMetadataMap[sch]?.reg);
 
-    // Region comparison: always use FULL (unfiltered) records so all 5 regions show values regardless of sidebar filter
+    // Region comparison
     const regionData = customRegions.map(cr => {
         const regRs = yearBaseRecords.filter(r => getCustomRegion(r['지역']) === cr);
         return getAvgValue(regRs);
@@ -1789,8 +1722,6 @@ function renderOurUniversity(sch, ind) {
     // Scale (Size) Comparison
     const targetSize = univSizeRecs.find(r => r['학교명'] === sch)?.['값'] || 0;
     const targetGroup = getScaleGroup(targetSize);
-
-    // Scale comparison: use FULL (unfiltered) records for fair group averages
     const scaleAvgData = scaleGroups.map(grp => {
         const schoolsInGrp = univSizeRecs.filter(r => getScaleGroup(r['값']) === grp).map(r => r['학교명']);
         const grpRs = yearBaseRecords.filter(r => schoolsInGrp.includes(r['학교명']));
@@ -1817,12 +1748,12 @@ function renderOurUniversity(sch, ind) {
                     formatter: (v) => formatKpiValue(v, ind)
                 } 
             },
-            scales: { y: { display: false }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } }
+            scales: { x: { grid: { display: false }, ticks: { font: { size: 9 } } }, y: { display: false } }
         }
     });
 
     // Establishment Type Comparison
-    const targetTypeRaw = appData.records.find(r => r['학교명'] === sch && r['설립구분'])?.['설립구분'];
+    const targetTypeRaw = appData.schoolMetadataMap[sch]?.typ;
     const targetType = (targetTypeRaw === '사립') ? '사립' : '국공립 등';
     const typeGroups = ['사립', '국공립 등'];
     const typeAvgData = typeGroups.map(t => {
