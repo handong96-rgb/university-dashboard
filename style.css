@@ -813,11 +813,25 @@ body {
 
 .dashboard-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr 1.5fr;
+    grid-template-columns: repeat(4, 1fr);
     grid-template-rows: auto auto auto;
     gap: 15px;
     padding: 20px;
 }
+
+/* Page 7 Grid Spans */
+.kpi-summary-card { grid-column: span 1; }
+.stats-card { grid-column: span 1; }
+.trend-card { grid-column: span 2; }
+
+.group-region { grid-column: span 1; }
+.group-scale { grid-column: span 1; }
+.group-type { grid-column: span 1; }
+.benchmark-list { grid-column: span 1; }
+
+.rank-trend-card { grid-column: span 1; }
+.ranking-table-card { grid-column: span 2; }
+.stats-summary-card { grid-column: span 1; }
 
 .dash-card {
     background: #fff;
