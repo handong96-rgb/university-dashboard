@@ -813,25 +813,25 @@ body {
 
 .dashboard-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(8, 1fr);
     grid-template-rows: auto auto auto;
     gap: 15px;
     padding: 20px;
 }
 
-/* Page 7 Grid Spans */
-.kpi-summary-card { grid-column: span 1; }
-.stats-card { grid-column: span 1; }
-.trend-card { grid-column: span 2; }
+/* Page 7 Grid Spans (8-column system) */
+.kpi-summary-card { grid-column: span 2; }
+.stats-card { grid-column: span 2; }
+.trend-card { grid-column: span 4; }
 
-.group-region { grid-column: span 1; }
-.group-scale { grid-column: span 1; }
-.group-type { grid-column: span 1; }
-.ranking-table-card { grid-column: span 1; }
+.group-region { grid-column: span 2; }
+.group-scale { grid-column: span 2; }
+.group-type { grid-column: span 2; }
+.ranking-table-card { grid-column: span 2; }
 
-.rank-trend-card { grid-column: span 1; }
-.benchmark-list { grid-column: span 2; }
-.stats-summary-card { grid-column: span 1; }
+.rank-trend-card { grid-column: span 2; }
+.benchmark-list { grid-column: span 3; }
+.stats-summary-card { grid-column: span 3; }
 
 .dash-card {
     background: #fff;

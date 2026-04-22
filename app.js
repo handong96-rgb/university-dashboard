@@ -1,8 +1,8 @@
 let appData = null;
 let charts = { massiveTrends: {} };
 let renderTimeout = null;
-window.DASHBOARD_VERSION = "2.20";
-console.error("DASHBOARD VERSION 2.20 LOADED");
+window.DASHBOARD_VERSION = "2.21";
+console.error("DASHBOARD VERSION 2.21 LOADED");
 
 // Global Error Reporter for Debugging
 window.onerror = function(msg, url, lineNo, columnNo, error) {
