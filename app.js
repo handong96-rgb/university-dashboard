@@ -1,8 +1,8 @@
 let appData = null;
 let charts = { massiveTrends: {} };
 let renderTimeout = null;
-window.DASHBOARD_VERSION = "2.25";
-console.error("DASHBOARD VERSION 2.25 LOADED");
+window.DASHBOARD_VERSION = "2.26";
+console.error("DASHBOARD VERSION 2.26 LOADED");
 
 // Global Error Reporter for Debugging
 window.onerror = function(msg, url, lineNo, columnNo, error) {
@@ -110,6 +110,25 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
+function getPrecision(indName) {
+    if (!indName) return 2;
+    if (indName === '순위') return 0;
+    if (indName === 'T-점수' || indName === '백분위') return 2;
+    const meta = appData.indicator_metadata.find(m => m['지표명'] === indName);
+    const formatType = meta ? meta['평가표기'] : '2자리';
+    if (formatType === '정수') return 0;
+    if (formatType === '1자리') return 1;
+    if (formatType === '2자리') return 2;
+    if (formatType === '3자리') return 3;
+    return 2;
+}
+
+function truncateValue(val, dec) {
+    if (val == null || isNaN(val)) return 0;
+    const factor = Math.pow(10, dec);
+    return Math.floor(val * factor + 1e-9) / factor;
+}
+
 function formatKpiValue(val, indName) {
     if (val == null || isNaN(val)) return '-';
     if (indName === '순위') return Math.round(val).toString();
@@ -118,19 +137,8 @@ function formatKpiValue(val, indName) {
         return rounded.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
-    let dec = 2; // Default
-    const meta = appData.indicator_metadata.find(m => m['지표명'] === indName);
-    const formatType = meta ? meta['평가표기'] : '2자리';
-    
-    if (formatType === '정수') dec = 0;
-    else if (formatType === '1자리') dec = 1;
-    else if (formatType === '2자리') dec = 2;
-    else if (formatType === '3자리') dec = 3;
-    
-    // Truncation (Floor) Logic
-    const factor = Math.pow(10, dec);
-    const truncated = Math.floor(val * factor + 1e-9) / factor;
-    
+    const dec = getPrecision(indName);
+    const truncated = truncateValue(val, dec);
     return truncated.toLocaleString(undefined, { minimumFractionDigits: dec, maximumFractionDigits: dec });
 }
 
@@ -395,12 +403,18 @@ function updateSchoolListsByFilter(regions, typ, groupReg, scale) {
 
 
 
-function getAvgValue(rs) {
+function getAvgValue(rs, indName) {
     if(!rs || !rs.length) return null;
     const valid = rs.filter(r => r['값'] != null);
     if(valid.length === 0) return null;
-    let sum = valid.reduce((acc, r) => acc + r['값'], 0);
-    return sum / valid.length;
+    
+    const dec = getPrecision(indName);
+    const truncatedValues = valid.map(r => truncateValue(r['값'], dec));
+    
+    let sum = truncatedValues.reduce((acc, v) => acc + v, 0);
+    let avg = sum / truncatedValues.length;
+    
+    return truncateValue(avg, dec);
 }
 
 function percentileExc(vals, k) {
@@ -645,7 +659,7 @@ function renderPerformance(sch, cmp, reg, typ) {
             // Percentile is calculated against the locally filtered dataset reflecting active Region and Type
             const stat = getPercentile(group, sch, kpi, latestYear);
             
-            const groupAvg = getAvgValue(group);
+            const groupAvg = getAvgValue(group, kpi);
             let badgeClass = stat.topPct <= 10 ? 'badge-green' : stat.topPct <= 30 ? 'badge-blue' : stat.topPct <= 60 ? 'badge-amber' : 'badge-red';
             let cardClass = stat.topPct <= 10 ? 'good' : stat.topPct <= 30 ? 'mid' : stat.topPct <= 60 ? 'warn' : 'poor';
             let kpiName = kpi.replace(/^\[\d+\.\d+\]\s*/, '');
@@ -781,7 +795,7 @@ function renderPerformance(sch, cmp, reg, typ) {
             datasets.push({ 
                 label: groupLabel, 
                 data: finKpis.map(k => {
-                    const val = getAvgValue(getLocalFilteredRs(k).group);
+                    const val = getAvgValue(getLocalFilteredRs(k).group, k);
                     return (val != null && !isNaN(val)) ? val : 0;
                 }), 
                 backgroundColor: '#9ca3af' 
@@ -826,9 +840,9 @@ function renderPerformance(sch, cmp, reg, typ) {
             const datasets = [{
                 label: '기숙사 수용률 (%)',
                 data: [
-                    getAvgValue(sudokwonRecs),
-                    getAvgValue(nonSudokwonRecs),
-                    getAvgValue(group),
+                    getAvgValue(sudokwonRecs, k),
+                    getAvgValue(nonSudokwonRecs, k),
+                    getAvgValue(group, k),
                     (target && target['값'] != null) ? target['값'] : 0
                 ].map(v => (v != null && !isNaN(v)) ? v : 0),
                 backgroundColor: ['#94a3b8', '#cbd5e1', 'rgba(29,78,216,0.2)', '#1d4ed8'],
@@ -863,9 +877,9 @@ function renderPerformance(sch, cmp, reg, typ) {
             const datasets = [{
                 label: '학생 충원 성과 (점)',
                 data: [
-                    getAvgValue(privateRecs),
-                    getAvgValue(publicRecs),
-                    getAvgValue(group),
+                    getAvgValue(privateRecs, k),
+                    getAvgValue(publicRecs, k),
+                    getAvgValue(group, k),
                     (target && target['값'] != null) ? target['값'] : 0
                 ].map(v => (v != null && !isNaN(v)) ? v : 0),
                 backgroundColor: ['#94a3b8', '#cbd5e1', 'rgba(5,150,105,0.2)', '#059669'],
@@ -930,7 +944,7 @@ function renderPerformance(sch, cmp, reg, typ) {
 
                     lineDatasets.push({ 
                         label: groupLabel, 
-                        data: displayYears.map(y => getAvgValue(getLocalFilteredRs(kpi, y).group)), 
+                        data: displayYears.map(y => getAvgValue(getLocalFilteredRs(kpi, y).group, kpi)), 
                         borderColor: '#9ca3af', borderDash: [5,4], borderWidth: 1.2, tension: 0.3, pointRadius: 0 
                     });
 
@@ -988,7 +1002,7 @@ function renderPerformance(sch, cmp, reg, typ) {
             datasets.push({ 
                 label: groupLabel, 
                 data: [r1, r2].map(k => {
-                    const v = getAvgValue(getLocalFilteredRs(k).group);
+                    const v = getAvgValue(getLocalFilteredRs(k).group, k);
                     return (v != null && !isNaN(v)) ? v : 0;
                 }), 
                 backgroundColor: '#9ca3af' 
@@ -1036,10 +1050,10 @@ function renderBenchmarking(sch, cmp, ind) {
     let schRegion = target ? target['지역'] : '-';
     let schType = target ? target['설립구분'] : '-';
     
-    let allAvg = getAvgValue(appData.records.filter(r => r['연도'] === latestYear && r['지표명'] === ind));
-    let regAvg = getAvgValue(appData.records.filter(r => r['연도'] === latestYear && r['지표명'] === ind && r['지역'] === schRegion));
-    let typAvg = getAvgValue(appData.records.filter(r => r['연도'] === latestYear && r['지표명'] === ind && r['설립구분'] === schType));
-    let filterGrpAvg = getAvgValue(group);
+    let allAvg = getAvgValue(appData.records.filter(r => r['연도'] === latestYear && r['지표명'] === ind), ind);
+    let regAvg = getAvgValue(appData.records.filter(r => r['연도'] === latestYear && r['지표명'] === ind && r['지역'] === schRegion), ind);
+    let typAvg = getAvgValue(appData.records.filter(r => r['연도'] === latestYear && r['지표명'] === ind && r['설립구분'] === schType), ind);
+    let filterGrpAvg = getAvgValue(group, ind);
 
     const labels = [];
     const data = [];
@@ -1228,7 +1242,7 @@ function renderEvaluation(sch) {
         
         if(rs.length === 0) return;
 
-        const avgVal = getAvgValue(rs);
+        const avgVal = getAvgValue(rs, ind);
         const goal = TARGETS[ind].target;
         const dir = getIndicatorDirection(ind);
 
@@ -1710,7 +1724,7 @@ function renderOurUniversity(sch, ind) {
     // Region comparison
     const regionData = customRegions.map(cr => {
         const regRs = yearBaseRecords.filter(r => getCustomRegion(r['지역']) === cr);
-        return getAvgValue(regRs);
+        return getAvgValue(regRs, ind);
     });
 
     charts.dashRegion = new Chart(document.getElementById('dash-region-chart'), {
@@ -1744,7 +1758,7 @@ function renderOurUniversity(sch, ind) {
     const scaleAvgData = scaleGroups.map(grp => {
         const schoolsInGrp = univSizeRecs.filter(r => getScaleGroup(r['값']) === grp).map(r => r['학교명']);
         const grpRs = yearBaseRecords.filter(r => schoolsInGrp.includes(r['학교명']));
-        return getAvgValue(grpRs);
+        return getAvgValue(grpRs, ind);
     });
 
     charts.dashScale = new Chart(document.getElementById('dash-scale-chart'), {
@@ -1780,7 +1794,7 @@ function renderOurUniversity(sch, ind) {
             const isPrivate = r['설립구분'] === '사립';
             return t === '사립' ? isPrivate : !isPrivate;
         });
-        return getAvgValue(subset);
+        return getAvgValue(subset, ind);
     });
 
     charts.dashType = new Chart(document.getElementById('dash-type-chart'), {
