@@ -1,8 +1,8 @@
 let appData = null;
 let charts = { massiveTrends: {} };
 let renderTimeout = null;
-window.DASHBOARD_VERSION = "2.33";
-console.error("DASHBOARD VERSION 2.33 LOADED");
+window.DASHBOARD_VERSION = "2.34";
+console.error("DASHBOARD VERSION 2.34 LOADED");
 
 // Global Error Reporter for Debugging
 window.onerror = function(msg, url, lineNo, columnNo, error) {
@@ -521,11 +521,19 @@ function getPercentile(rs, school, kpiName, year) {
     
     let finalPercentile = (evalType === '부') ? (1 - excelPercentile) : excelPercentile;
     
+    const countStrictlyBetter = (evalType === '부') ? 
+        pop.filter(v => v < schoolValue).length : 
+        pop.filter(v => v > schoolValue).length;
+
+    const currentRank = countStrictlyBetter + 1;
+
     return {
         value: schoolValue,
         topPct: (1 - finalPercentile) * 100, 
         score: finalPercentile * 100,
-        percentile: finalPercentile * 100
+        percentile: finalPercentile * 100,
+        rank: currentRank,
+        total: totalUnivs
     };
 }
 
@@ -1183,7 +1191,15 @@ function renderRanking(sch, cmp, ind, regFilter, typFilter, scaleFilter) {
     if (dir === 1) rs.sort((a,b) => b['값'] - a['값']); // Higher is better -> rank 1 is highest
     else rs.sort((a,b) => a['값'] - b['값']); // Lower is better -> rank 1 is lowest
 
-    rs.forEach((r, i) => r._rank = i + 1);
+    let lastValue = null;
+    let lastRank = 0;
+    rs.forEach((r, i) => {
+        if (r['값'] !== lastValue) {
+            lastRank = i + 1;
+        }
+        r._rank = lastRank;
+        lastValue = r['값'];
+    });
 
     // Apply selected sort
     rs.sort((a, b) => {
@@ -1900,11 +1916,9 @@ function renderOurUniversity(sch, ind) {
         });
 
         filtered.sort((a,b) => direction === 1 ? b['값'] - a['값'] : a['값'] - b['값']);
-        const rIndex = filtered.findIndex(r => r['학교명'] === sch);
-        const rank = rIndex >= 0 ? rIndex + 1 : null;
-        
-        console.log(`[RankTrend] ${y} | Pop: ${filtered.length} | Handong: ${rank}`);
-        return { year: y, rank: rank };
+        const pData = getPercentile(filtered, sch, ind, y);
+        console.log(`[RankTrend] ${y} | Pop: ${filtered.length} | Handong: ${pData.rank}`);
+        return { year: y, rank: pData.rank };
     });
     console.error("DEBUG: rankTrend final result", rankTrend);
 
@@ -1948,7 +1962,7 @@ function renderOurUniversity(sch, ind) {
         const pData = getPercentile(sortedForDots, r['학교명'], ind, year);
         
         row.innerHTML = `
-            <td>${idx + 1}</td>
+            <td>${pData.rank}</td>
             <td style="font-weight:700;">${r['학교명']}</td>
             <td>${formatKpiValue(r['값'], ind)}</td>
             <td>${unit}</td>
