@@ -1,8 +1,8 @@
 let appData = null;
 let charts = { massiveTrends: {} };
 let renderTimeout = null;
-window.DASHBOARD_VERSION = "2.10";
-console.error("DASHBOARD VERSION 2.10 LOADED");
+window.DASHBOARD_VERSION = "2.11";
+console.error("DASHBOARD VERSION 2.11 LOADED");
 Chart.register(ChartDataLabels);
 
 const CORE_9_KPIS = [
@@ -91,7 +91,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-function formatKpiValue(val, indName) {
+function formatKpiValue(val, indName, forceRound = false) {
     if (val == null || isNaN(val)) return '-';
     if (indName === '순위') return Math.round(val).toString();
     if (indName === 'T-점수' || indName === '백분위') return Number(val).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -105,11 +105,15 @@ function formatKpiValue(val, indName) {
     else if (formatType === '2자리') dec = 2;
     else if (formatType === '3자리') dec = 3;
     
-    // Truncation (Floor) Logic
     const factor = Math.pow(10, dec);
-    const truncated = Math.floor(val * factor + 1e-9) / factor;
+    let finalVal;
+    if (forceRound) {
+        finalVal = Math.round(val * factor) / factor;
+    } else {
+        finalVal = Math.floor(val * factor + 1e-9) / factor;
+    }
     
-    return truncated.toLocaleString(undefined, { minimumFractionDigits: dec, maximumFractionDigits: dec });
+    return finalVal.toLocaleString(undefined, { minimumFractionDigits: dec, maximumFractionDigits: dec });
 }
 
 function setupNavigation() {
@@ -1898,7 +1902,7 @@ function renderOurUniversity(sch, ind) {
                 legend: { display: false }, 
                 datalabels: { 
                     display: true, anchor: 'end', align: 'top', font: { size: 9, weight: 'bold' },
-                    formatter: (v) => formatKpiValue(v, ind)
+                    formatter: (v) => formatKpiValue(v, ind, true) // Force Rounding for stats
                 } 
             },
             scales: { x: { grid: { display: false }, ticks: { font: { size: 10 } } }, y: { display: false } }
@@ -1919,12 +1923,12 @@ function renderOurUniversity(sch, ind) {
         </thead>
         <tbody>
             <tr>
-                <td style="font-weight:800; color:#f97316;">${formatKpiValue(val, ind)}</td>
-                <td>${formatKpiValue(val75, ind)}</td>
-                <td>${formatKpiValue(stats.q2, ind)}</td>
-                <td>${formatKpiValue(val25, ind)}</td>
-                <td>${formatKpiValue(stats.max, ind)}</td>
-                <td>${formatKpiValue(stats.mean, ind)}</td>
+                <td style="font-weight:800; color:#f97316;">${formatKpiValue(val, ind, true)}</td>
+                <td>${formatKpiValue(val75, ind, true)}</td>
+                <td>${formatKpiValue(stats.q2, ind, true)}</td>
+                <td>${formatKpiValue(val25, ind, true)}</td>
+                <td>${formatKpiValue(stats.max, ind, true)}</td>
+                <td>${formatKpiValue(stats.mean, ind, true)}</td>
             </tr>
         </tbody>
     `;
