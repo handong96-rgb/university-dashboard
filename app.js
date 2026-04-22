@@ -1,8 +1,8 @@
 let appData = null;
 let charts = { massiveTrends: {} };
 let renderTimeout = null;
-window.DASHBOARD_VERSION = "2.8";
-console.error("DASHBOARD VERSION 2.8 LOADED");
+window.DASHBOARD_VERSION = "2.9";
+console.error("DASHBOARD VERSION 2.9 LOADED");
 Chart.register(ChartDataLabels);
 
 const CORE_9_KPIS = [
@@ -417,7 +417,7 @@ function getIndicatorDirection(ind) {
 }
 
 function getPercentile(rs, school, kpiName, year) {
-    if(!school || school === 'all') return { value: null, topPct: 50, score: 50 };
+    if(!school || school === 'all') return { value: null, topPct: 50, score: 50, percentile: 50 };
     
     let kpi = kpiName;
     let yr = year;
@@ -426,10 +426,10 @@ function getPercentile(rs, school, kpiName, year) {
         yr = rs[0]['연도'];
     }
     
-    if (!kpi || !yr) return { value: null, topPct: 50, score: 50 };
+    if (!kpi || !yr) return { value: null, topPct: 50, score: 50, percentile: 50 };
 
     const r = appData.records.find(x => x['지표명'] === kpi && x['연도'] === yr && x['학교명'] === school);
-    if(!r || r['값'] == null) return { value: null, topPct: 50, score: 50 };
+    if(!r || r['값'] == null) return { value: null, topPct: 50, score: 50, percentile: 50 };
     
     const schoolValue = r['값'];
     
@@ -459,29 +459,7 @@ function getPercentile(rs, school, kpiName, year) {
         percentile: finalPercentile * 100
     };
 }
-    
-    if (!kpi || !yr) return { value: null, topPct: 50, score: 50 };
 
-    const r = appData.records.find(x => x['지표명'] === kpi && x['연도'] === yr && x['학교명'] === school);
-    if(!r || r['값'] == null) return { value: null, topPct: 50, score: 50 };
-    
-    const schoolValue = r['값'];
-    
-    
-    const direction = getIndicatorDirection(kpi);
-    
-    valid.sort((a,b) => b - a); // desc
-    if(direction === -1) valid.sort((a,b) => a - b); // asc if lower is better
-
-    let rank = valid.indexOf(schoolValue) + 1;
-    let rankPct = (rank / valid.length) * 100;
-    
-    return {
-        value: schoolValue,
-        topPct: rankPct,
-        score: Math.max(0, 100 - rankPct) // bar width (100 is best)
-    };
-}
 
 
 function getActiveYear() {
