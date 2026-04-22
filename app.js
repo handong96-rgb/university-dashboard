@@ -1,8 +1,8 @@
 let appData = null;
 let charts = { massiveTrends: {} };
 let renderTimeout = null;
-window.DASHBOARD_VERSION = "2.9";
-console.error("DASHBOARD VERSION 2.9 LOADED");
+window.DASHBOARD_VERSION = "2.10";
+console.error("DASHBOARD VERSION 2.10 LOADED");
 Chart.register(ChartDataLabels);
 
 const CORE_9_KPIS = [
@@ -381,6 +381,24 @@ function getAvgValue(rs) {
     return sum / valid.length;
 }
 
+function percentileExc(vals, k) {
+    if (!vals.length) return 0;
+    const N = vals.length;
+    const i = k * (N + 1);
+    if (i <= 1) return vals[0];
+    if (i >= N) return vals[N - 1];
+    const floorIdx = Math.floor(i);
+    const fraction = i - floorIdx;
+    return vals[floorIdx - 1] + fraction * (vals[floorIdx] - vals[floorIdx - 1]);
+}
+
+function median(vals) {
+    if (!vals.length) return 0;
+    const N = vals.length;
+    const mid = Math.floor(N / 2);
+    return (N % 2 !== 0) ? vals[mid] : (vals[mid - 1] + vals[mid]) / 2;
+}
+
 function getStats(rs) {
     if(!rs || !rs.length) return { mean: 0, stdDev: 0, max: 0, q1: 0, q2: 0, q3: 0 };
     const vals = rs.filter(r => r['값'] != null).map(r => r['값']).sort((a,b) => a - b);
@@ -391,9 +409,9 @@ function getStats(rs) {
     const stdDev = Math.sqrt(variance);
     
     const max = vals[vals.length - 1];
-    const q1 = vals[Math.floor(vals.length * 0.25)];
-    const q2 = vals[Math.floor(vals.length * 0.5)];
-    const q3 = vals[Math.floor(vals.length * 0.75)];
+    const q1 = percentileExc(vals, 0.25);
+    const q2 = median(vals);
+    const q3 = percentileExc(vals, 0.75);
     
     return { mean, stdDev, max, q1, q2, q3 };
 }
@@ -1860,13 +1878,16 @@ function renderOurUniversity(sch, ind) {
     });
 
     // Distribution Bar
+    const val25 = (direction === 1) ? stats.q3 : stats.q1;
+    const val75 = (direction === 1) ? stats.q1 : stats.q3;
+
     charts.dashDist = new Chart(document.getElementById('dash-dist-chart'), {
         type: 'bar',
         data: {
-            labels: ['우리대학교값', '상위 25%', '중위수', '상위 75%', '최댓값', '평균'],
+            labels: ['우리대학교값', '상위 75%', '중위수', '상위 25%', '최댓값', '평균'],
             datasets: [{
-                data: [val, stats.q3, stats.q2, stats.q1, stats.max, stats.mean],
-                backgroundColor: ['#f97316', '#cbd5e1', '#94a3b8', '#64748b', '#003366', '#854d0e'],
+                data: [val, val75, stats.q2, val25, stats.max, stats.mean],
+                backgroundColor: ['#f97316', '#64748b', '#94a3b8', '#cbd5e1', '#003366', '#854d0e'],
                 borderRadius: 4
             }]
         },
@@ -1890,18 +1911,18 @@ function renderOurUniversity(sch, ind) {
             <tr>
                 <th>우리대학교값</th>
                 <th>상위 75%</th>
-                <th>상위 50%</th>
+                <th>중위수</th>
                 <th>상위 25%</th>
-                <th>최대값</th>
+                <th>최댓값</th>
                 <th>평균</th>
             </tr>
         </thead>
         <tbody>
             <tr>
                 <td style="font-weight:800; color:#f97316;">${formatKpiValue(val, ind)}</td>
-                <td>${formatKpiValue(stats.q1, ind)}</td>
+                <td>${formatKpiValue(val75, ind)}</td>
                 <td>${formatKpiValue(stats.q2, ind)}</td>
-                <td>${formatKpiValue(stats.q3, ind)}</td>
+                <td>${formatKpiValue(val25, ind)}</td>
                 <td>${formatKpiValue(stats.max, ind)}</td>
                 <td>${formatKpiValue(stats.mean, ind)}</td>
             </tr>
