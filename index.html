@@ -150,14 +150,29 @@
                     <div class="page-header">
                         <h2>벤치마킹 분석 <span class="subtitle">| 주요 그룹(설립/지역) 대비 현황 및 다면 평가</span></h2>
                     </div>
+                    <div class="bench-scoreboard">
+                        <div class="bench-score-card">
+                            <div class="label">타겟 대학 실적</div>
+                            <div class="value" id="bench-target-value">-</div>
+                        </div>
+                        <div class="bench-score-card">
+                            <div class="label">타겟 대학 순위</div>
+                            <div class="value" id="bench-target-rank">-</div>
+                        </div>
+                        <div class="bench-score-card">
+                            <div class="label">선택그룹 평균</div>
+                            <div class="value" id="bench-group-avg">-</div>
+                        </div>
+                    </div>
                     <div style="display:flex; gap:1.5rem; flex:1; min-height: 400px;">
                         <div class="chart-box large" style="flex:1;">
                             <div class="chart-box-header">
                                 <span class="dynamic-indicator-name">지표</span> 벤치마킹 (최신연도 기준)
                             </div>
                             <div class="chart-box-body" style="flex:1; position:relative; min-height:250px;">
-                                <canvas id="benchmark-canvas"></canvas>
+                                <canvas id="bench-chart"></canvas>
                             </div>
+                            <div id="bench-rank-bars" style="margin-top:20px;"></div>
                         </div>
                         <div class="chart-card" style="flex:2;">
                             <div class="chart-title">다면 평가 레이더 차트 (표준 스케일)</div>
@@ -389,6 +404,6 @@
             </main>
         </div>
     </div>
-    <script src="app.js?v=2.29"></script>
+    <script src="app.js?v=2.30"></script>
 </body>
 </html>
