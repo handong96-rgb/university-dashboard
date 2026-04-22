@@ -407,20 +407,18 @@ function getTScore(val, stats, direction) {
     return 10 * z + 50;
 }
 
-function getIndicatorDirection(indName) {
-    // 1: Higher is better ('정'), -1: Lower is better ('부')
-    if (!appData || !appData.indicator_metadata) return (TARGETS[indName] || {dir: 1}).dir;
-    const meta = appData.indicator_metadata.find(m => m['지표명'] === indName);
-    if (meta && meta['평가성향'] === '부') return -1;
-    if (meta && meta['평가성향'] === '정') return 1;
-    // Fallback to TARGETS hardcoded dir if metadata is missing
-    return (TARGETS[indName] || {dir: 1}).dir;
+function getIndicatorDirection(ind) {
+    const meta = appData.indicator_metadata.find(m => m['지표명'] === ind);
+    if (meta && meta['평가성향']) {
+        return (meta['평가성향'] === '부') ? -1 : 1;
+    }
+    if (TARGETS[ind]) return TARGETS[ind].dir;
+    return 1; // Default
 }
 
 function getPercentile(rs, school, kpiName, year) {
     if(!school || school === 'all') return { value: null, topPct: 50, score: 50 };
     
-    // Safety check for metadata extraction
     let kpi = kpiName;
     let yr = year;
     if ((!kpi || !yr) && rs && rs.length > 0) {
@@ -430,7 +428,6 @@ function getPercentile(rs, school, kpiName, year) {
     
     if (!kpi || !yr) return { value: null, topPct: 50, score: 50 };
 
-    // Find the target school globally to prevent empty spaces when filter excludes it
     const r = appData.records.find(x => x['지표명'] === kpi && x['연도'] === yr && x['학교명'] === school);
     if(!r || r['값'] == null) return { value: null, topPct: 50, score: 50 };
     
@@ -597,7 +594,6 @@ function renderPerformance(sch, cmp, reg, typ) {
     try {
         CORE_8_KPIS.forEach(kpi => {
             const { group, target } = getLocalFilteredRs(kpi);
-            const dir = getIndicatorDirection(kpi);
             
             // Percentile is calculated against the locally filtered dataset reflecting active Region and Type
             const stat = getPercentile(group, sch, kpi, latestYear);
@@ -1836,12 +1832,15 @@ function renderOurUniversity(sch, ind) {
     sortedForDots.forEach((r, idx) => {
         const row = document.createElement('tr');
         if (r['학교명'] === sch) row.style.backgroundColor = '#fff7ed';
+        
+        const pData = getPercentile(sortedForDots, r['학교명'], ind, year);
+        
         row.innerHTML = `
             <td>${idx + 1}</td>
             <td style="font-weight:700;">${r['학교명']}</td>
             <td>${formatKpiValue(r['값'], ind)}</td>
             <td>${unit}</td>
-            <td style="color:#666;">${(100 - ((idx+1)/sortedForDots.length*100)).toFixed(1)}%</td>
+            <td style="color:#666;">${pData.percentile.toFixed(1)}%</td>
         `;
         tableBody.appendChild(row);
 
