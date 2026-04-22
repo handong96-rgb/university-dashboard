@@ -745,7 +745,17 @@ function renderPerformance(sch, cmp, reg, typ) {
                     responsive: true, maintainAspectRatio: false, 
                     plugins: { 
                         legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } },
-                        datalabels: { anchor: 'end', align: 'top', font: { size: 9, weight: 'bold' }, formatter: (v) => formatKpiValue(v, k) }
+                        datalabels: { 
+                            anchor: 'end', align: 'top', font: { size: 9, weight: 'bold' }, 
+                            formatter: (v, context) => {
+                                const kpiNames = [
+                                    '[1.3] 세입 중 등록금 비율', 
+                                    '[1.3] 세입 중 기부금 비율', 
+                                    '[1.3] 세입 중 법인전입금 비율(사립대)'
+                                ];
+                                return formatKpiValue(v, kpiNames[context.dataIndex]);
+                            } 
+                        }
                     },
                     scales: { y: { beginAtZero: true, max: 100 } }
                 }
@@ -1538,8 +1548,10 @@ function renderOurUniversity(sch, ind) {
             // 4. Scale
             let matchesScale = true;
             if (scaleFilter !== 'all') {
-                const sizeValue = univSizeRecs.find(sizeR => sizeR['학교명'] === r['학교명'])?.['값'] || 0;
-                matchesScale = (getScaleGroup(sizeValue) === scaleFilter);
+                const sizeValue = univSizeRecs.find(sizeR => sizeR['학교명'] === r['학교명'])?.['값'];
+                if (sizeValue != null) {
+                    matchesScale = (getScaleGroup(sizeValue) === scaleFilter);
+                }
             }
 
             return matchesReg && matchesTyp && matchesGrp && matchesScale;
@@ -1637,19 +1649,6 @@ function renderOurUniversity(sch, ind) {
             scales: { y: { beginAtZero: false, grid: { borderDash: [2, 2] } } }
         }
     });
-
-    // 3. Row 2: Comparisons
-    // Region
-    const customRegions = ['수도권', '대경강원권', '충청권', '동남권', '호남권제주권'];
-    const getCustomRegion = (prov) => {
-        if (!prov) return '';
-        if (prov.includes('서울') || prov.includes('경기') || prov.includes('인천')) return '수도권';
-        if (prov.includes('대구') || prov.includes('경북') || prov.includes('강원')) return '대경강원권';
-        if (prov.includes('대전') || prov.includes('충남') || prov.includes('세종') || prov.includes('충북')) return '충청권';
-        if (prov.includes('울산') || prov.includes('경남') || prov.includes('부산')) return '동남권';
-        if (prov.includes('전남') || prov.includes('전북') || prov.includes('제주')) return '호남권제주권';
-        return '';
-    };
 
     const targetCustomRegion = getCustomRegion(appData.schoolMetadataMap[sch]?.reg);
 
@@ -1755,11 +1754,31 @@ function renderOurUniversity(sch, ind) {
 
 
     // 4. Row 3: Ranking & Stats
-    // Rank Trend
+    // Rank Trend: must also apply active filters for each year's population
     const rankTrend = allYears.map(y => {
-        const yrRecs = appData.records.filter(r => r['연도'] === y && r['지표명'] === ind && r['값'] != null);
-        yrRecs.sort((a,b) => direction === 1 ? b['값'] - a['값'] : a['값'] - b['값']);
-        const rIndex = yrRecs.findIndex(r => r['학교명'] === sch);
+        const yrBase = appData.records.filter(r => r['연도'] === y && r['지표명'] === ind && r['값'] != null);
+        
+        // For scale filtering in previous years, look up that year's size data
+        const yrSizeRecs = appData.records.filter(r => r['연도'] === y && r['지표명'] === scaleIndName);
+        
+        const filtered = yrBase.filter(r => {
+            // 1. Region
+            const matchesReg = (checkedRegions.length === 0) || (checkedRegions.includes(r['지역']));
+            // 2. Type
+            let matchesTyp = (typFilter === 'all') || (((r['설립구분'] === '사립') ? '사립' : '국공립') === typFilter);
+            // 3. Group
+            const matchesGrp = (grpFilter === 'all') || (getCustomRegion(r['지역']) === grpFilter);
+            // 4. Scale
+            let matchesScale = true;
+            if (scaleFilter !== 'all') {
+                const sVal = yrSizeRecs.find(sr => sr['학교명'] === r['학교명'])?.['값'];
+                if (sVal != null) matchesScale = (getScaleGroup(sVal) === scaleFilter);
+            }
+            return matchesReg && matchesTyp && matchesGrp && matchesScale;
+        });
+
+        filtered.sort((a,b) => direction === 1 ? b['값'] - a['값'] : a['값'] - b['값']);
+        const rIndex = filtered.findIndex(r => r['학교명'] === sch);
         return { year: y, rank: rIndex >= 0 ? rIndex + 1 : null };
     });
 
