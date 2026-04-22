@@ -1,8 +1,8 @@
 let appData = null;
 let charts = { massiveTrends: {} };
 let renderTimeout = null;
-window.DASHBOARD_VERSION = "2.18";
-console.error("DASHBOARD VERSION 2.18 LOADED");
+window.DASHBOARD_VERSION = "2.19";
+console.error("DASHBOARD VERSION 2.19 LOADED");
 
 // Global Error Reporter for Debugging
 window.onerror = function(msg, url, lineNo, columnNo, error) {
@@ -1791,12 +1791,14 @@ function renderOurUniversity(sch, ind) {
                 data: typeAvgData,
                 backgroundColor: typeGroups.map(t => (t === targetType ? '#f97316' : '#475569')),
                 borderRadius: 4,
-                barThickness: 40
+                barThickness: 50 // Increased thickness
             }]
         },
         options: {
             responsive: true, maintainAspectRatio: false,
             layout: { padding: { top: 45 } },
+            categoryPercentage: 0.4, // Brining bars closer
+            barPercentage: 0.9,
             plugins: { 
                 legend: { display: false }, 
                 datalabels: { 
