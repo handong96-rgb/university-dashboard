@@ -1,8 +1,8 @@
 let appData = null;
 let charts = { massiveTrends: {} };
 let renderTimeout = null;
-window.DASHBOARD_VERSION = "2.26";
-console.error("DASHBOARD VERSION 2.26 LOADED");
+window.DASHBOARD_VERSION = "2.27";
+console.error("DASHBOARD VERSION 2.27 LOADED");
 
 // Global Error Reporter for Debugging
 window.onerror = function(msg, url, lineNo, columnNo, error) {
@@ -840,9 +840,9 @@ function renderPerformance(sch, cmp, reg, typ) {
             const datasets = [{
                 label: '기숙사 수용률 (%)',
                 data: [
-                    getAvgValue(sudokwonRecs, k),
-                    getAvgValue(nonSudokwonRecs, k),
-                    getAvgValue(group, k),
+                    getAvgValue(sudokwonRecs, dormKpi),
+                    getAvgValue(nonSudokwonRecs, dormKpi),
+                    getAvgValue(group, dormKpi),
                     (target && target['값'] != null) ? target['값'] : 0
                 ].map(v => (v != null && !isNaN(v)) ? v : 0),
                 backgroundColor: ['#94a3b8', '#cbd5e1', 'rgba(29,78,216,0.2)', '#1d4ed8'],
@@ -877,9 +877,9 @@ function renderPerformance(sch, cmp, reg, typ) {
             const datasets = [{
                 label: '학생 충원 성과 (점)',
                 data: [
-                    getAvgValue(privateRecs, k),
-                    getAvgValue(publicRecs, k),
-                    getAvgValue(group, k),
+                    getAvgValue(privateRecs, enrollKpi),
+                    getAvgValue(publicRecs, enrollKpi),
+                    getAvgValue(group, enrollKpi),
                     (target && target['값'] != null) ? target['값'] : 0
                 ].map(v => (v != null && !isNaN(v)) ? v : 0),
                 backgroundColor: ['#94a3b8', '#cbd5e1', 'rgba(5,150,105,0.2)', '#059669'],
