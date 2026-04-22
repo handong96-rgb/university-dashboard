@@ -1484,6 +1484,7 @@ function renderRadar(sch, cmp) {
 // PAGE 7: OUR UNIVERSITY DASHBOARD
 // -------------------
 function renderOurUniversity(sch, ind) {
+    console.error("DEBUG: renderOurUniversity START", {sch, ind, activePage: document.querySelector('.nav-item.active')?.dataset.target});
     if (sch === 'all') sch = appData.filters.schools[0];
     const year = getActiveYear();
     const direction = getIndicatorDirection(ind);
@@ -1792,6 +1793,7 @@ function renderOurUniversity(sch, ind) {
         console.log(`Rank Calculation for ${y}: Population=${filtered.length}, HandongRank=${rank}, FilterGrp=${grpFilter}`);
         return { year: y, rank: rank };
     });
+    console.error("DEBUG: rankTrend final result", rankTrend);
 
     charts.dashRankTrend = new Chart(document.getElementById('dash-rank-trend-chart'), {
         type: 'line',
