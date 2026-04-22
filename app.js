@@ -105,7 +105,11 @@ function formatKpiValue(val, indName) {
     else if (formatType === '2자리') dec = 2;
     else if (formatType === '3자리') dec = 3;
     
-    return Number(val).toLocaleString(undefined, { minimumFractionDigits: dec, maximumFractionDigits: dec });
+    // Truncation (Floor) Logic
+    const factor = Math.pow(10, dec);
+    const truncated = Math.floor(val * factor + 1e-9) / factor;
+    
+    return truncated.toLocaleString(undefined, { minimumFractionDigits: dec, maximumFractionDigits: dec });
 }
 
 function setupNavigation() {
