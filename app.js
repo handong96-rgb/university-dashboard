@@ -1821,6 +1821,43 @@ function renderOurUniversity(sch, ind) {
         }
     });
 
+    // Establishment Type Comparison
+    const targetTypeRaw = appData.records.find(r => r['학교명'] === sch && r['설립구분'])?.['설립구분'];
+    const targetType = (targetTypeRaw === '사립') ? '사립' : '국공립 등';
+    const typeGroups = ['사립', '국공립 등'];
+    const typeAvgData = typeGroups.map(t => {
+        const subset = yearBaseRecords.filter(r => {
+            const isPrivate = r['설립구분'] === '사립';
+            return t === '사립' ? isPrivate : !isPrivate;
+        });
+        return getAvgValue(subset);
+    });
+
+    charts.dashType = new Chart(document.getElementById('dash-type-chart'), {
+        type: 'bar',
+        data: {
+            labels: typeGroups,
+            datasets: [{
+                data: typeAvgData,
+                backgroundColor: typeGroups.map(t => (t === targetType ? '#f97316' : '#475569')),
+                borderRadius: 4,
+                barThickness: 40
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            layout: { padding: { top: 45 } },
+            plugins: { 
+                legend: { display: false }, 
+                datalabels: { 
+                    display: true, anchor: 'end', align: 'top', font: { size: 9 },
+                    formatter: (v) => formatKpiValue(v, ind)
+                } 
+            },
+            scales: { x: { grid: { display: false }, ticks: { font: { size: 9 } } }, y: { display: false } }
+        }
+    });
+
     // Benchmark Dots Chart (Ranking Visual)
     const sortedForDots = [...yearRecords].filter(r => r['값'] != null).sort((a,b) => direction === 1 ? b['값'] - a['값'] : a['값'] - b['값']);
     const top10ForDots = sortedForDots.slice(0, 10);
