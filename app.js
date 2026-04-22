@@ -1,6 +1,8 @@
 let appData = null;
 let charts = { massiveTrends: {} };
 let renderTimeout = null;
+window.DASHBOARD_VERSION = "2.6";
+console.error("DASHBOARD VERSION 2.6 LOADED");
 Chart.register(ChartDataLabels);
 
 const CORE_9_KPIS = [
@@ -1755,42 +1757,28 @@ function renderOurUniversity(sch, ind) {
 
 
     // 4. Row 3: Ranking & Stats
-    // Rank Trend: must also apply active filters for each year's population
+    // Rank Trend: Sync with active filters
     const rankTrend = allYears.map(y => {
-        // Base population for that year and indicator
         const yrBase = appData.records.filter(r => r['연도'] === y && r['지표명'] === ind && r['값'] != null);
-        
-        // Size data for that year (for scale filtering)
         const yrSizeRecs = appData.records.filter(r => r['연도'] === y && r['지표명'] === scaleIndName);
         
-        // Apply the same filters as Page 7 sidebar
         const filtered = yrBase.filter(r => {
-            // 1. Region Group
-            if (grpFilter !== 'all') {
-                if (getCustomRegion(r['지역']) !== grpFilter) return false;
-            }
-            // 2. Region (Multiple Checkboxes)
-            if (checkedRegions.length > 0) {
-                if (!checkedRegions.includes(r['지역'])) return false;
-            }
-            // 3. Type
-            if (typFilter !== 'all') {
-                const mappedTyp = (r['설립구분'] === '사립') ? '사립' : '국공립';
-                if (mappedTyp !== typFilter) return false;
-            }
-            // 4. Scale
+            const matchesReg = (checkedRegions.length === 0) || (checkedRegions.includes(r['지역']));
+            const matchesTyp = (typFilter === 'all') || (((r['설립구분'] === '사립') ? '사립' : '국공립') === typFilter);
+            const matchesGrp = (grpFilter === 'all') || (getCustomRegion(r['지역']) === grpFilter);
+            let matchesScale = true;
             if (scaleFilter !== 'all') {
                 const sVal = yrSizeRecs.find(sr => sr['학교명'] === r['학교명'])?.['값'];
-                if (sVal != null && getScaleGroup(sVal) !== scaleFilter) return false;
+                if (sVal != null) matchesScale = (getScaleGroup(sVal) === scaleFilter);
             }
-            return true;
+            return matchesReg && matchesTyp && matchesGrp && matchesScale;
         });
 
         filtered.sort((a,b) => direction === 1 ? b['값'] - a['값'] : a['값'] - b['값']);
         const rIndex = filtered.findIndex(r => r['학교명'] === sch);
         const rank = rIndex >= 0 ? rIndex + 1 : null;
         
-        console.log(`Rank Calculation for ${y}: Population=${filtered.length}, HandongRank=${rank}, FilterGrp=${grpFilter}`);
+        console.log(`[RankTrend] ${y} | Pop: ${filtered.length} | Handong: ${rank}`);
         return { year: y, rank: rank };
     });
     console.error("DEBUG: rankTrend final result", rankTrend);
