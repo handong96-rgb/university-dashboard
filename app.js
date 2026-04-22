@@ -1,8 +1,8 @@
 let appData = null;
 let charts = { massiveTrends: {} };
 let renderTimeout = null;
-window.DASHBOARD_VERSION = "2.31";
-console.error("DASHBOARD VERSION 2.31 LOADED");
+window.DASHBOARD_VERSION = "2.32";
+console.error("DASHBOARD VERSION 2.32 LOADED");
 
 // Global Error Reporter for Debugging
 window.onerror = function(msg, url, lineNo, columnNo, error) {
@@ -95,6 +95,12 @@ window.addEventListener('DOMContentLoaded', async () => {
         appData.records.forEach(r => {
             if (!appData.schoolMetadataMap[r['학교명']]) {
                 appData.schoolMetadataMap[r['학교명']] = { reg: r['지역'], typ: r['설립구분'] };
+            }
+            // [수정] 아예 처음부터 지표별 평가표기(정수, 1~3자리)에 맞춰 모든 '값'을 미리 버림 처리
+            if (r['값'] != null) {
+                const dec = getPrecision(r['지표명']);
+                const factor = Math.pow(10, dec);
+                r['값'] = Math.floor(r['값'] * factor + 1e-9) / factor;
             }
         });
 
