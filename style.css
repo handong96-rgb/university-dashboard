@@ -827,10 +827,10 @@ body {
 .group-region { grid-column: span 1; }
 .group-scale { grid-column: span 1; }
 .group-type { grid-column: span 1; }
-.benchmark-list { grid-column: span 1; }
+.ranking-table-card { grid-column: span 1; }
 
 .rank-trend-card { grid-column: span 1; }
-.ranking-table-card { grid-column: span 2; }
+.benchmark-list { grid-column: span 2; }
 .stats-summary-card { grid-column: span 1; }
 
 .dash-card {

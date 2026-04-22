@@ -1,8 +1,8 @@
 let appData = null;
 let charts = { massiveTrends: {} };
 let renderTimeout = null;
-window.DASHBOARD_VERSION = "2.19";
-console.error("DASHBOARD VERSION 2.19 LOADED");
+window.DASHBOARD_VERSION = "2.20";
+console.error("DASHBOARD VERSION 2.20 LOADED");
 
 // Global Error Reporter for Debugging
 window.onerror = function(msg, url, lineNo, columnNo, error) {
@@ -941,7 +941,7 @@ function renderPerformance(sch, cmp, reg, typ) {
                         options: { 
                             responsive: true, maintainAspectRatio: false, 
                             plugins: { 
-                                legend: { display: false },
+                                legend: { display: false }, 
                                 datalabels: {
                                     display: (context) => context.datasetIndex === 0, // Only for Target
                                     align: 'top', anchor: 'end', font: { size: 9, weight: 'bold' },
@@ -1070,7 +1070,7 @@ function renderBenchmarking(sch, cmp, ind) {
             responsive: true, maintainAspectRatio: false,
             layout: { padding: { right: 80 } }, // Increase right padding to avoid datalabel clipping
             plugins: { 
-                legend: { display: false },
+                legend: { display: false }, 
                 datalabels: {
                     anchor: 'end', align: 'right', font: { size: 10, weight: 'bold' },
                     formatter: (v) => formatKpiValue(v, ind)
