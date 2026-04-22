@@ -1,8 +1,8 @@
 let appData = null;
 let charts = { massiveTrends: {} };
 let renderTimeout = null;
-window.DASHBOARD_VERSION = "2.6";
-console.error("DASHBOARD VERSION 2.6 LOADED");
+window.DASHBOARD_VERSION = "2.8";
+console.error("DASHBOARD VERSION 2.8 LOADED");
 Chart.register(ChartDataLabels);
 
 const CORE_9_KPIS = [
@@ -433,11 +433,40 @@ function getPercentile(rs, school, kpiName, year) {
     
     const schoolValue = r['값'];
     
-    let valid = (rs || []).filter(x => x['값'] != null).map(x => x['값']);
-    // Include school value if it's not present because of filters
-    if (!valid.includes(schoolValue)) {
-        valid.push(schoolValue);
-    }
+    const pop = (rs || []).filter(x => x['값'] != null).map(x => x['값']);
+    const totalUnivs = pop.length;
+    if (totalUnivs <= 1) return { value: schoolValue, topPct: 0, score: 100 };
+
+    // DAX logic: 나보다 명확하게 '작은' 값의 개수 세기
+    const countStrictlyLess = pop.filter(v => v < schoolValue).length;
+    
+    // Raw Percentile: (나보다 작은 개수) / (전체 개수 - 1)
+    let rawPercentile = countStrictlyLess / (totalUnivs - 1);
+    
+    // Excel-like Truncate (3 decimal places)
+    let excelPercentile = Math.floor(rawPercentile * 1000 + 1e-9) / 1000;
+    
+    // Evaluation Type handling (정: 큰게 좋음, 부: 작은게 좋음)
+    const meta = appData.indicator_metadata.find(m => m['지표명'] === kpi);
+    const evalType = meta ? meta['평가성향'] : '정';
+    
+    let finalPercentile = (evalType === '부') ? (1 - excelPercentile) : excelPercentile;
+    
+    return {
+        value: schoolValue,
+        topPct: (1 - finalPercentile) * 100, 
+        score: finalPercentile * 100,
+        percentile: finalPercentile * 100
+    };
+}
+    
+    if (!kpi || !yr) return { value: null, topPct: 50, score: 50 };
+
+    const r = appData.records.find(x => x['지표명'] === kpi && x['연도'] === yr && x['학교명'] === school);
+    if(!r || r['값'] == null) return { value: null, topPct: 50, score: 50 };
+    
+    const schoolValue = r['값'];
+    
     
     const direction = getIndicatorDirection(kpi);
     
