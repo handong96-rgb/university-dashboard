@@ -1,8 +1,8 @@
 let appData = null;
 let charts = { massiveTrends: {} };
 let renderTimeout = null;
-window.DASHBOARD_VERSION = "2.32";
-console.error("DASHBOARD VERSION 2.32 LOADED");
+window.DASHBOARD_VERSION = "2.33";
+console.error("DASHBOARD VERSION 2.33 LOADED");
 
 // Global Error Reporter for Debugging
 window.onerror = function(msg, url, lineNo, columnNo, error) {
@@ -352,7 +352,7 @@ function updateSchoolListsByFilter(regions, typ, groupReg, scale) {
     const currentCmps = Array.from(cmpSel.selectedOptions).map(o => o.value);
 
     // Filter schools using high-performance cached map + scale lookup
-    const scaleIndName = appData.filters.indicators.find(i => i.includes('학부') && i.includes('정원') && i.includes('재학생'));
+    const scaleIndName = appData.filters.indicators.find(i => i.includes('학부') && i.includes('정원내외') && i.includes('재학생'));
     const univSizeRecs = appData.records.filter(r => r['연도'] === year && r['지표명'] === scaleIndName);
 
     const filteredSchools = appData.filters.schools.filter(name => {
@@ -607,7 +607,7 @@ function getFilteredRs(ind, year, sch, cmp, reg, typ) {
     // 3. Scale Filter (Dynamic lookup using latest available enrollment data)
     const scale = document.getElementById('scale-select').value;
     if (scale !== 'all') {
-        const scaleIndName = appData.filters.indicators.find(i => i.includes('학부') && i.includes('정원') && i.includes('재학생'));
+        const scaleIndName = appData.filters.indicators.find(i => i.includes('학부') && i.includes('정원내외') && i.includes('재학생'));
         // Find newest available year for scale data
         const newestScaleYear = appData.filters.years.slice().reverse().find(y => 
             appData.records.some(r => r['연도'] === y && r['지표명'] === scaleIndName)
@@ -1608,7 +1608,7 @@ function renderOurUniversity(sch, ind) {
     const grpFilter = document.getElementById('region-group-select').value;
     const scaleFilter = document.getElementById('scale-select').value;
 
-    const scaleIndName = appData.filters.indicators.find(i => i.includes('학부') && i.includes('정원') && i.includes('재학생'));
+    const scaleIndName = appData.filters.indicators.find(i => i.includes('학부') && i.includes('정원내외') && i.includes('재학생'));
     const univSizeRecs = appData.records.filter(r => r['연도'] === year && r['지표명'] === scaleIndName);
 
     const getFilteredRecords = (recs) => {
