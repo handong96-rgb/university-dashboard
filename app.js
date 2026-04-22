@@ -1550,7 +1550,8 @@ function renderOurUniversity(sch, ind) {
     const yearRecords = getFilteredRecords(yearBaseRecords);
     
     const stats = getStats(yearRecords);
-    const targetRec = yearRecords.find(r => r['학교명'] === sch);
+    // Always look up target school from UNFILTERED records to prevent null when school is outside selected region
+    const targetRec = yearBaseRecords.find(r => r['학교명'] === sch);
     const val = targetRec ? targetRec['값'] : null;
 
     // T-Score & Percentile (based on filtered population)
@@ -1652,8 +1653,9 @@ function renderOurUniversity(sch, ind) {
 
     const targetCustomRegion = getCustomRegion(appData.schoolMetadataMap[sch]?.reg);
 
+    // Region comparison: always use FULL (unfiltered) records so all 5 regions show values regardless of sidebar filter
     const regionData = customRegions.map(cr => {
-        const regRs = yearRecords.filter(r => getCustomRegion(r['지역']) === cr);
+        const regRs = yearBaseRecords.filter(r => getCustomRegion(r['지역']) === cr);
         return getAvgValue(regRs);
     });
 
@@ -1685,9 +1687,10 @@ function renderOurUniversity(sch, ind) {
     const targetSize = univSizeRecs.find(r => r['학교명'] === sch)?.['값'] || 0;
     const targetGroup = getScaleGroup(targetSize);
 
+    // Scale comparison: use FULL (unfiltered) records for fair group averages
     const scaleAvgData = scaleGroups.map(grp => {
         const schoolsInGrp = univSizeRecs.filter(r => getScaleGroup(r['값']) === grp).map(r => r['학교명']);
-        const grpRs = yearRecords.filter(r => schoolsInGrp.includes(r['학교명']));
+        const grpRs = yearBaseRecords.filter(r => schoolsInGrp.includes(r['학교명']));
         return getAvgValue(grpRs);
     });
 
