@@ -1,8 +1,8 @@
 let appData = null;
 let charts = { massiveTrends: {} };
 let renderTimeout = null;
-window.DASHBOARD_VERSION = "2.27";
-console.error("DASHBOARD VERSION 2.27 LOADED");
+window.DASHBOARD_VERSION = "2.31";
+console.error("DASHBOARD VERSION 2.31 LOADED");
 
 // Global Error Reporter for Debugging
 window.onerror = function(msg, url, lineNo, columnNo, error) {
@@ -409,12 +409,21 @@ function getAvgValue(rs, indName) {
     if(valid.length === 0) return null;
     
     const dec = getPrecision(indName);
-    const truncatedValues = valid.map(r => truncateValue(r['값'], dec));
+    const factor = Math.pow(10, dec);
     
-    let sum = truncatedValues.reduce((acc, v) => acc + v, 0);
-    let avg = sum / truncatedValues.length;
+    // 1. 선(先) 버림 처리 (정수 공간에서 계산하여 부동소수점 오차 방지)
+    const scaledInputs = valid.map(r => Math.floor(r['값'] * factor + 1e-9));
     
-    return truncateValue(avg, dec);
+    // 2. 정수 합계 계산
+    let sum = scaledInputs.reduce((acc, v) => acc + v, 0);
+    
+    // 3. 평균 계산 (연도별/그룹별 평균)
+    let avgScaled = sum / valid.length;
+    
+    // 4. 후(後) 버림 처리 (최종 결과에 대해 다시 한번 버림)
+    let resultScaled = Math.floor(avgScaled + 1e-9);
+    
+    return resultScaled / factor;
 }
 
 function percentileExc(vals, k) {
