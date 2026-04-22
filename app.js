@@ -672,7 +672,7 @@ function renderPerformance(sch, cmp, reg, typ) {
             },
             options: { 
                 responsive: true, maintainAspectRatio: false, 
-                layout: { padding: 10 },
+                layout: { padding: 30 },
                 plugins: { 
                     legend: { display: true, position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } },
                     datalabels: { display: false }
@@ -1646,7 +1646,7 @@ function renderOurUniversity(sch, ind) {
         },
         options: {
             responsive: true, maintainAspectRatio: false,
-            layout: { padding: { top: 25 } },
+            layout: { padding: { top: 35 } },
             plugins: { 
                 legend: { position: 'top', align: 'end', labels: { boxWidth: 10, font: { size: 10 } } },
                 datalabels: {
@@ -1679,6 +1679,7 @@ function renderOurUniversity(sch, ind) {
         options: {
             responsive: true, maintainAspectRatio: false,
             indexAxis: 'y',
+            layout: { padding: { right: 80 } },
             plugins: { 
                 legend: { display: false }, 
                 datalabels: { 
@@ -1713,7 +1714,7 @@ function renderOurUniversity(sch, ind) {
         },
         options: {
             responsive: true, maintainAspectRatio: false,
-            layout: { padding: { top: 25 } },
+            layout: { padding: { top: 45 } },
             plugins: { 
                 legend: { display: false }, 
                 datalabels: { 
@@ -1810,7 +1811,7 @@ function renderOurUniversity(sch, ind) {
         },
         options: {
             responsive: true, maintainAspectRatio: false,
-            layout: { padding: { top: 25 } },
+            layout: { padding: { top: 35 } },
             scales: { 
                 y: { reverse: true, ticks: { stepSize: 1 }, grid: { borderDash: [2, 2] } } 
             },
@@ -1861,7 +1862,7 @@ function renderOurUniversity(sch, ind) {
         },
         options: {
             responsive: true, maintainAspectRatio: false,
-            layout: { padding: { top: 30 } },
+            layout: { padding: { top: 45 } },
             plugins: { 
                 legend: { display: false }, 
                 datalabels: { 
